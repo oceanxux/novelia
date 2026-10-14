@@ -10,6 +10,7 @@
 const express = require('express');
 const store = require('../lib/userstore');
 const codes = require('../lib/redeemcodes');
+const sysconfig = require('../lib/sysconfig');
 
 const router = express.Router();
 
@@ -30,6 +31,48 @@ function acct(u) {
 
 router.get('/api/accounts', (req, res) => {
   res.json({ data: [...store.users.values()].map(acct) });
+});
+
+// 管理员直接添加新账户
+router.post('/api/accounts', (req, res) => {
+  const body = req.body || {};
+  const email = String(body.email || '').trim().toLowerCase();
+  const password = String(body.password || '').trim();
+  const nickname = String(body.nickname || '').trim();
+  const is_member = !!body.is_member;
+
+  if (!email) return res.status(400).json({ error: '请输入邮箱账号' });
+  if (!/^[a-z0-9._%+-]+@[a-z0-9.-]+\.[a-z]{2,}$/i.test(email)) {
+    return res.status(400).json({ error: '请输入有效的邮箱地址' });
+  }
+  if (store.get(email)) return res.status(400).json({ error: '该邮箱账号已存在' });
+
+  if (password && (password.length < 6 || password.length > 12)) {
+    return res.status(400).json({ error: '密码长度需在6-12位之间' });
+  }
+  const finalPassword = password || store.genKey().slice(0, 10);
+
+  const u = store.add({ email, password: finalPassword, nickname });
+  if (is_member) {
+    u.is_member = true;
+    u.member_records = [{
+      code: 'ADMIN', masked_code: '后台添加开通',
+      created_at: Date.now(), created_at_text: new Date().toLocaleString('zh-CN'),
+    }];
+    store.save();
+  }
+
+  res.json({ ok: true, user: acct(u), password: finalPassword });
+});
+
+// 获取/更新系统配置 (如自主注册开关)
+router.get('/api/config', (req, res) => {
+  res.json({ ok: true, config: sysconfig.get() });
+});
+
+router.post('/api/config', (req, res) => {
+  const cfg = sysconfig.set(req.body || {});
+  res.json({ ok: true, config: cfg });
 });
 
 router.post('/api/accounts/:email/toggle_disable', (req, res) => {

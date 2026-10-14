@@ -33,7 +33,7 @@ function esc(s) {
 
 // ---- 首页 ----
 function sendIndex(req, res) {
-  const user = userRoute.resolveUser(req) || [...store.users.values()][0] || { nickname: '', avatar: '/uploads/avatars/default-avatar.png' };
+  const user = userRoute.resolveUser(req) || { nickname: '', avatar: '/uploads/avatars/default-avatar.png' };
   let html = fs.readFileSync(TPL, 'utf8');
   const vars = {
     NICKNAME: esc(user.nickname || ''),

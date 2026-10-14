@@ -316,23 +316,12 @@
             </form>
         </div>
 
-        <!-- 右侧：个人中心入口 -->
+        <!-- 右侧：个人中心/登录入口 (由 JS 根据 TokenManager 动态接管) -->
         <div class="nav-right">
-            <div class="dropdown">
-                <a class="nav-user d-flex align-items-center gap-2" href="#" data-bs-toggle="dropdown" aria-expanded="false" style="text-decoration:none;">
-                    <div class="nav-user-avatar-wrap">
-                        <img src="{{AVATAR}}" class="nav-user-avatar" alt="用户头像" onerror="this.src='/uploads/avatars/default-avatar.png'">
-                        <span class="online-dot"></span>
-                    </div>
-                    <span class="nav-user-nickname d-none d-sm-inline">{{NICKNAME}}</span>
-                </a>
-                <ul class="dropdown-menu dropdown-menu-end shadow-sm border-0" style="border-radius:12px; margin-top:10px;">
-                    <li><a class="dropdown-item py-2" href="user_center"><i class="fas fa-user-circle me-2 text-primary"></i>个人中心</a></li>
-                    <li><a class="dropdown-item py-2" href="/book_source.json"><i class="fas fa-cloud-arrow-down me-2 text-success"></i>导出 Legado 书源</a></li>
-                    <li><hr class="dropdown-divider"></li>
-                    <li><a class="dropdown-item py-2 text-danger logout-btn" href="#"><i class="fas fa-sign-out-alt me-2"></i>退出登录</a></li>
-                </ul>
-            </div>
+            <a class="btn btn-outline-primary d-flex align-items-center gap-2" href="user_login" style="border-radius:999px;padding:6px 16px;font-size:13.5px;font-weight:600;text-decoration:none;">
+                <i class="fas fa-sign-in-alt"></i>
+                <span>登录 / 注册</span>
+            </a>
         </div>
     </div>
 </nav>

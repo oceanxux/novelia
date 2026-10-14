@@ -9,6 +9,7 @@ data/jj_account.json
 data/user-sources.json
 data/admins.json
 data/fq_account.json
+data/system_config.json
 
 # 用户上传的头像 (保留默认头像)
 public/uploads/avatars/*

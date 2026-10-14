@@ -718,13 +718,16 @@ let countdownTimer = null;
   const params = new URLSearchParams(window.location.search);
   const m = params.get('mode');
   const success = params.get('success');
+  const errorMsg = params.get('error');
   const email = params.get('email');
 
   if (email) {
     const el = document.getElementById('login-email');
     if (el) el.value = email;
   }
-  if (success === 'logged_out') {
+  if (errorMsg) {
+    showToast(errorMsg, 'error');
+  } else if (success === 'logged_out') {
     showToast('已安全退出登录', 'info');
   } else if (success === 'registered') {
     showToast('注册成功，请使用新密码登录', 'success');
@@ -737,8 +740,36 @@ let countdownTimer = null;
   }
 })();
 
+// 检查系统注册开关配置
+let allowRegister = true;
+async function checkRegConfig() {
+  try {
+    const res = await fetch('/api/public_config').then(r => r.json());
+    if (res && res.success) {
+      allowRegister = res.allow_register;
+      const regTab = document.getElementById('btn-tab-reg');
+      const regLinks = document.querySelectorAll('button[onclick*="register"]');
+      if (!allowRegister) {
+        if (regTab) regTab.style.display = 'none';
+        regLinks.forEach(b => {
+          b.style.display = 'none';
+        });
+        if (currentMode === 'register') {
+          switchMode('login');
+          showToast('系统已暂停自主注册，请直接登录', 'info');
+        }
+      }
+    }
+  } catch(e) {}
+}
+checkRegConfig();
+
 // 选项卡切换
 function switchMode(mode) {
+  if (mode === 'register' && !allowRegister) {
+    showToast('系统当前已关闭自主注册功能，请联系管理员分配账户', 'error');
+    return;
+  }
   currentMode = mode;
   const tabLogin = document.getElementById('btn-tab-login');
   const tabReg = document.getElementById('btn-tab-reg');

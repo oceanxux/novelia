@@ -68,7 +68,29 @@
 
 <div class="layout">
   <div class="panel">
-    <h2><i>👤</i> 账户列表 <span class="spacer"></span><button class="btn" id="reloadAcct">⟳ 刷新</button></h2>
+    <h2>
+      <i>⚙️</i> 系统与注册配置
+      <span class="spacer"></span>
+    </h2>
+    <div class="toolbar" style="justify-content:space-between;">
+      <div style="display:flex;align-items:center;gap:12px;">
+        <span style="font-weight:600;font-size:13.5px;color:#1e293b;">用户自主注册功能:</span>
+        <span id="regStatusPill" class="pill enabled">已开启</span>
+        <span class="muted" style="font-size:12px;">(关闭后前台登录页将禁用注册入口，仅能由管理员在此添加账户)</span>
+      </div>
+      <div>
+        <button class="btn" id="toggleRegBtn">切换开关</button>
+      </div>
+    </div>
+  </div>
+
+  <div class="panel">
+    <h2>
+      <i>👤</i> 账户列表 
+      <span class="spacer"></span>
+      <button class="btn primary" id="addAcctBtn" style="margin-right:8px;">+ 添加账户</button>
+      <button class="btn" id="reloadAcct">⟳ 刷新</button>
+    </h2>
     <div class="table-responsive">
       <table>
         <thead>
@@ -265,9 +287,130 @@ $('#genBtn').onclick = async () => {
   $('#codesOut').value = (r.codes || []).map((c) => c.code).join('\n');
   loadCodes();
 };
+let sysConfig = { allow_register: true };
+
+async function loadConfig() {
+  const r = await AF('/api/config').then((x) => x.json());
+  if (r.ok && r.config) {
+    sysConfig = r.config;
+    updateRegUI();
+  }
+}
+
+function updateRegUI() {
+  const pill = $('#regStatusPill');
+  const btn = $('#toggleRegBtn');
+  if (sysConfig.allow_register) {
+    pill.className = 'pill enabled';
+    pill.textContent = '已开启';
+    btn.textContent = '关闭注册';
+    btn.className = 'btn warn';
+  } else {
+    pill.className = 'pill disabled';
+    pill.textContent = '已关闭';
+    btn.textContent = '开启注册';
+    btn.className = 'btn primary';
+  }
+}
+
+$('#toggleRegBtn').onclick = async () => {
+  const next = !sysConfig.allow_register;
+  const res = await Swal.fire({
+    title: `${next ? '开启' : '关闭'}自主注册`,
+    text: next ? '开启后，访客可在前台自主注册账号。' : '关闭后，前台将停止自主注册，仅允许管理员手动添加。',
+    icon: next ? 'info' : 'warning',
+    showCancelButton: true,
+    confirmButtonText: '确认',
+    cancelButtonText: '取消',
+    confirmButtonColor: ACC,
+    reverseButtons: true,
+  });
+  if (!res.isConfirmed) return;
+  const r = await AF('/api/config', {
+    method: 'POST',
+    headers: { 'Content-Type': 'application/json' },
+    body: JSON.stringify({ allow_register: next }),
+  }).then((x) => x.json());
+  if (r.ok && r.config) {
+    sysConfig = r.config;
+    updateRegUI();
+    Swal.fire({ icon: 'success', title: '设置已保存', timer: 1200, showConfirmButton: false });
+  }
+};
+
+$('#addAcctBtn').onclick = async () => {
+  const res = await Swal.fire({
+    title: '添加新账户',
+    html: `
+      <div style="text-align:left;display:flex;flex-direction:column;gap:12px;margin-top:10px;">
+        <div>
+          <label style="font-size:12px;font-weight:700;color:#475569;">邮箱账号 (必填)</label>
+          <input id="swal-email" class="swal2-input" placeholder="user@example.com" style="width:100%;margin:4px 0 0;font-size:14px;">
+        </div>
+        <div>
+          <label style="font-size:12px;font-weight:700;color:#475569;">用户昵称 (选填)</label>
+          <input id="swal-nick" class="swal2-input" placeholder="默认使用邮箱前缀" style="width:100%;margin:4px 0 0;font-size:14px;">
+        </div>
+        <div>
+          <label style="font-size:12px;font-weight:700;color:#475569;">登录密码 (留空则随机生成)</label>
+          <input id="swal-pwd" type="text" class="swal2-input" placeholder="6-12 位字符" style="width:100%;margin:4px 0 0;font-size:14px;">
+        </div>
+        <div style="display:flex;align-items:center;gap:8px;margin-top:4px;">
+          <input type="checkbox" id="swal-vip" style="width:16px;height:16px;cursor:pointer;">
+          <label for="swal-vip" style="font-size:13px;color:#1e293b;cursor:pointer;font-weight:600;">直接设为 VIP 会员</label>
+        </div>
+      </div>
+    `,
+    showCancelButton: true,
+    confirmButtonText: '创建账户',
+    cancelButtonText: '取消',
+    confirmButtonColor: ACC,
+    cancelButtonColor: '#8b92a8',
+    reverseButtons: true,
+    focusConfirm: false,
+    preConfirm: () => {
+      const email = ($('#swal-email').value || '').trim();
+      const nickname = ($('#swal-nick').value || '').trim();
+      const password = ($('#swal-pwd').value || '').trim();
+      const is_member = $('#swal-vip').checked;
+      if (!email) { Swal.showValidationMessage('请输入邮箱账号'); return false; }
+      if (!/^[a-z0-9._%+-]+@[a-z0-9.-]+\.[a-z]{2,}$/i.test(email)) { Swal.showValidationMessage('请输入有效的邮箱地址'); return false; }
+      if (password && (password.length < 6 || password.length > 12)) { Swal.showValidationMessage('密码需在 6-12 位之间'); return false; }
+      return { email, nickname, password, is_member };
+    }
+  });
+
+  if (!res.isConfirmed) return;
+  const r = await AF('/api/accounts', {
+    method: 'POST',
+    headers: { 'Content-Type': 'application/json' },
+    body: JSON.stringify(res.value),
+  }).then((x) => x.json());
+
+  if (r.error) {
+    Swal.fire({ icon: 'error', title: '创建失败', text: r.error, confirmButtonColor: ACC });
+    return;
+  }
+
+  loadAccounts();
+  const copied = await navigator.clipboard.writeText(r.password).then(() => true).catch(() => false);
+  Swal.fire({
+    icon: 'success',
+    title: '账户创建成功',
+    html: `
+      账户 <b>${esc(r.user.email)}</b> 创建成功！<br><br>
+      登录密码: <code style="font-family:ui-monospace,Menlo,monospace;background:#f1f3fa;padding:3px 9px;border-radius:6px;color:${ACC};font-weight:700">${esc(r.password)}</code><br>
+      API 密钥: <code style="font-family:ui-monospace,Menlo,monospace;background:#f1f3fa;padding:3px 9px;border-radius:6px;color:#059669;font-weight:700">${esc(r.user.api_key)}</code><br><br>
+      <span class="muted">${copied ? '密码已复制到剪贴板' : '请复制并妥善保管上述信息'}</span>
+    `,
+    confirmButtonText: '完成',
+    confirmButtonColor: ACC,
+  });
+};
+
 $('#reloadAcct').onclick = loadAccounts;
 
-window.AdminAuth.boot(() => { loadAccounts(); loadCodes(); });
+window.AdminAuth.boot(() => { loadConfig(); loadAccounts(); loadCodes(); });
 </script>
 </body>
 </html>

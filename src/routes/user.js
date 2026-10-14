@@ -119,7 +119,10 @@ function renderPage(user) {
 
 // ---- 页面 ----
 function sendPage(req, res) {
-  const user = resolveUser(req) || guestUser();
+  const user = resolveUser(req);
+  if (!user) {
+    return res.redirect('/user_login?error=' + encodeURIComponent('未登录或登录已过期，请先登录账号'));
+  }
   res.type('html').send(renderPage(user));
 }
 router.get('/user_center', sendPage);

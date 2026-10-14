@@ -60,7 +60,7 @@ app.use(require('./routes/jj'));
 app.use(require('./routes/fq'));
 app.use(require('./routes/user').router);
 
-app.get('/', (req, res) => res.redirect('/booklist_index'));
+app.get('/', (req, res) => res.redirect('/user_login'));
 
 const PORT = process.env.PORT || 7001;
 if (require.main === module) {

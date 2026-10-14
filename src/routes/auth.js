@@ -8,9 +8,15 @@
 const path = require('path');
 const express = require('express');
 const store = require('../lib/userstore');
+const sysconfig = require('../lib/sysconfig');
 
 const router = express.Router();
 const PUBLIC = path.join(__dirname, '..', '..', 'public');
+
+// 公开系统配置 (如自主注册开关, 供登录注册页前端查询)
+router.get('/api/public_config', (req, res) => {
+  res.json({ success: true, allow_register: sysconfig.get().allow_register });
+});
 
 // 邮箱验证码: email -> { code, password, expire, cooldownUntil, purpose }
 const codes = new Map();
@@ -69,6 +75,10 @@ router.post('/user_login', (req, res) => {
 
 // ---- 注册 ----
 router.post('/register_api', (req, res) => {
+  if (!sysconfig.get().allow_register) {
+    return res.json({ success: false, message: '系统当前已关闭自主注册功能，请联系管理员分配账户' });
+  }
+
   const body = req.body || {};
   const action = String(body.action || '').trim();
   const email = String(body.email || '').trim().toLowerCase();

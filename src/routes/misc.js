@@ -17,9 +17,52 @@ router.post('/login', (req, res) => {
   res.json({ success: true, ...r });
 });
 
-// 版本校验 (前端会读 version/force/msg)
+// 版本校验与更新检查 (阅读 app 会通过浏览器弹窗访问 /version?id=5.65)
 router.get('/version', (req, res) => {
-  res.json({ version: '5.65', force: 'false', msg: '' });
+  const isBrowser = (req.get('accept') || '').includes('text/html') || req.query.id !== undefined;
+  if (isBrowser) {
+    const proto = String(req.get('x-forwarded-proto') || req.protocol || 'http').split(',')[0].trim();
+    const host = req.get('host') || '';
+    const base = `${proto}://${host}`;
+    return res.type('html').send(`<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width,initial-scale=1">
+<title>Novelia · 书源更新</title>
+<style>
+  body { font-family: -apple-system,BlinkMacSystemFont,"Segoe UI",Roboto,sans-serif; background:#f8fafc; color:#1e293b; padding:24px; margin:0; }
+  .card { max-width:440px; margin:20px auto; background:#fff; border-radius:18px; padding:24px; box-shadow:0 10px 30px rgba(0,0,0,0.06); text-align:center; }
+  .badge { display:inline-block; padding:4px 12px; background:#e0e7ff; color:#4338ca; border-radius:999px; font-size:12px; font-weight:700; margin-bottom:12px; }
+  h2 { margin:0 0 8px; font-size:20px; }
+  p { font-size:13px; color:#64748b; line-height:1.6; margin:0 0 20px; }
+  .btn { display:block; padding:12px; border-radius:12px; background:linear-gradient(135deg,#6366f1,#8b5cf6); color:#fff; text-decoration:none; font-weight:600; font-size:14px; box-shadow:0 4px 14px rgba(99,102,241,0.3); }
+  .log-box { text-align:left; background:#f1f5f9; border-radius:12px; padding:14px; font-size:12px; line-height:1.7; color:#334155; margin-bottom:20px; }
+</style>
+</head>
+<body>
+<div class="card">
+  <span class="badge">当前最新版本 v5.65</span>
+  <h2>Novelia 聚合书源</h2>
+  <p>书源核心与服务连接正常，可点击下方一键导入/更新到阅读 App。</p>
+  <div class="log-box">
+    <b>近期更新说明：</b><br>
+    • 修复第三方源封面 403 防盗链代理问题<br>
+    • 修复服务器连通性检测与接口探活<br>
+    • 完善番茄小说与晋江文学城无缝扫码登录<br>
+    • 优化多端同步与 Legado 契约兼容
+  </div>
+  <a class="btn" href="yuedu://booksource/importonline?src=${encodeURIComponent(base + '/book_source.json')}">一键更新 / 导入书源到阅读</a>
+</div>
+</body>
+</html>`);
+  }
+  res.json({ version: '5.65', force: 'false', msg: '当前已是最新版本' });
+});
+
+// 服务器连通性探活接口 (阅读 App「服务器检测」功能调用)
+router.get('/detection', (req, res) => {
+  res.type('text/plain').send('书山Novel/Novelia-Server-OK');
 });
 
 // 源站列表 (前端 exploreUrl 会读; 也供调试面板)

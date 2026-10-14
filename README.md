@@ -207,8 +207,14 @@ module.exports = {
 
 ```bash
 PORT=7099 DATA_DIR="$TMPDIR/agg7099" \
-  SEED_USERS='[{"email":"<测试邮箱>","password":"<测试密码>","api_key":"<测试KEY>"}]' \
+  SEED_USERS='[{"email":"demo@local","password":"demo123456","api_key":"<测试KEY>"}]' \
   node src/index.js &
+
+# 运行测试 (测试账号由环境变量提供, 须与 SEED_USERS 一致)
+TEST_EMAIL='demo@local' TEST_PASS='demo123456' TEST_API_KEY='<测试KEY>' \
+  node test/smoke.js   # 全源全链路 + 边界
+TEST_EMAIL='demo@local' TEST_PASS='demo123456' TEST_API_KEY='<测试KEY>' \
+  node test/e2e.js     # 前端 data-URI 契约链路
 ```
 
 ## 书源导入

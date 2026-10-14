@@ -150,8 +150,9 @@ function buildFullBookSource(base) {
 
   // 替换 loginUrl 中的外部链接为本站当前服务
   if (src.loginUrl) {
-    src.loginUrl = src.loginUrl.replace(/https:\/\/fb\.shushan\.vip/g, base + '/debug');
+    src.loginUrl = src.loginUrl.replace(/https:\/\/fb\.shushan\.vip/g, base + '/booklist_index');
     src.loginUrl = src.loginUrl.replace(/https:\/\/www\.kufaka\.com\/item\/9mbtvr/g, base + '/user_center');
+    src.loginUrl = src.loginUrl.replace(/https:\/\/fanqienovel\.com\/main\/writer\/login/g, 'https://fanqienovel.com/login');
   }
 
   // 替换 loginUi 按钮标题
