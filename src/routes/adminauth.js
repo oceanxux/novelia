@@ -46,4 +46,14 @@ router.get('/api/auth/status', (req, res) => {
   res.json({ code: 200, username: s.username, must_change_password: !!(rec && rec.must_change_password) });
 });
 
+router.post('/api/auth/profile', (req, res) => {
+  const s = admins.resolve(tokenOf(req));
+  if (!s) return res.status(401).json({ code: 401, message: '未登录或会话已过期' });
+  const body = req.body || {};
+  const newUsername = String(body.username || '').trim();
+  const r = admins.updateUsername(s.username, newUsername);
+  if (!r.ok) return res.status(400).json({ code: 400, message: r.error });
+  res.json({ code: 200, message: '管理员用户名已更新', username: r.username });
+});
+
 module.exports = router;

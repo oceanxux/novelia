@@ -23,14 +23,55 @@ const PROFILE = process.env.CF_PROFILE
   || path.join(os.tmpdir(), 'zld-cf-profile');
 
 const CHALLENGE_RE = /just a moment|attention required|checking your browser|请稍候|正在检查|cf_chl_opt|Enable JavaScript and cookies/i;
-const LAUNCH_ARGS = ['--test-type', '--disable-blink-features=AutomationControlled'];
+const LAUNCH_ARGS = ['--test-type', '--disable-blink-features=AutomationControlled', '--no-sandbox', '--disable-setuid-sandbox'];
+
+// 自动探测系统内可用的 Chrome / Chromium 路径
+const fs = require('fs');
+let detectedChrome = null;
+function findChromeExecutable() {
+  if (detectedChrome !== null) return detectedChrome;
+  const candidates = [
+    process.env.CHROME_BIN,
+    process.env.CHROME_PATH,
+    process.env.PUPPETEER_EXECUTABLE_PATH,
+    '/usr/bin/chromium-browser',
+    '/usr/bin/chromium',
+    '/usr/bin/google-chrome-stable',
+    '/usr/bin/google-chrome',
+    '/opt/google/chrome/chrome',
+    '/Applications/Google Chrome.app/Contents/MacOS/Google Chrome',
+  ];
+  for (const c of candidates) {
+    if (c && fs.existsSync(c)) {
+      detectedChrome = c;
+      return detectedChrome;
+    }
+  }
+  detectedChrome = false;
+  return false;
+}
+
+function getLaunchOptions(extra = {}) {
+  const exe = findChromeExecutable();
+  const opts = {
+    headless: true,
+    args: LAUNCH_ARGS,
+    ...extra,
+  };
+  if (exe) {
+    opts.executablePath = exe;
+  } else {
+    opts.channel = 'chrome';
+  }
+  return opts;
+}
 
 // 探测桌面 UA: 去掉 "Headless" 标记, 保留真实版本号; 进程内只探测一次。
 let uaPromise = null;
 function desktopUA() {
   if (!uaPromise) {
     uaPromise = (async () => {
-      const b = await pw.chromium.launch({ channel: 'chrome', headless: true, args: LAUNCH_ARGS });
+      const b = await pw.chromium.launch(getLaunchOptions());
       try {
         const page = await (await b.newContext()).newPage();
         const ua = await page.evaluate(() => navigator.userAgent);
@@ -59,15 +100,18 @@ async function waitPass(page, ctx, base) {
 }
 
 async function challenge(host, base) {
-  if (!pw) throw new Error(`CF 源 ${host}: 需要 patchright 与系统 Chrome (npm i patchright)`);
-  const ua = await desktopUA();
-  const ctx = await pw.chromium.launchPersistentContext(PROFILE, {
-    channel: 'chrome',
-    headless: true,
+  if (!pw) throw new Error(`CF 源 ${host}: 需要 patchright (npm i patchright)`);
+  let ua = 'Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/124.0.0.0 Safari/537.36';
+  try {
+    ua = await desktopUA();
+  } catch (err) {
+    // 若系统无 Chrome 报错，补充清晰中文提示
+    throw new Error(`CF 源 ${host}: 环境未安装 Chrome/Chromium 浏览器，无法通过 Cloudflare 挑战 (${err.message})`);
+  }
+  const ctx = await pw.chromium.launchPersistentContext(PROFILE, getLaunchOptions({
     viewport: null,
     userAgent: ua,
-    args: LAUNCH_ARGS,
-  });
+  }));
   try {
     const page = ctx.pages()[0] || (await ctx.newPage());
     await page.goto(base + '/', { waitUntil: 'domcontentloaded', timeout: 60000 });

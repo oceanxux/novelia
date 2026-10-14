@@ -99,6 +99,35 @@ function changePassword(username, oldPwd, newPwd) {
   return { ok: true };
 }
 
+function updateUsername(oldUsername, newUsername) {
+  const oldKey = String(oldUsername || '').toLowerCase();
+  const newKey = String(newUsername || '').trim().toLowerCase();
+  if (!newKey) return { ok: false, error: '新用户名不能为空' };
+  if (newKey.length < 3 || newKey.length > 32) return { ok: false, error: '用户名长度需在 3-32 位之间' };
+  if (!/^[a-zA-Z0-9_@.-]+$/.test(newKey)) return { ok: false, error: '用户名仅支持字母、数字、点、下划线或邮箱格式' };
+
+  const rec = admins.get(oldKey);
+  if (!rec) return { ok: false, error: '原管理员账户不存在' };
+
+  if (oldKey !== newKey && admins.has(newKey)) {
+    return { ok: false, error: '该管理员用户名已存在' };
+  }
+
+  admins.delete(oldKey);
+  rec.username = String(newUsername).trim();
+  admins.set(newKey, rec);
+  save();
+
+  // 更新当前 session 中的 username
+  for (const s of sessions.values()) {
+    if (s.username.toLowerCase() === oldKey) {
+      s.username = rec.username;
+    }
+  }
+
+  return { ok: true, username: rec.username };
+}
+
 function resolve(token) {
   if (!token) return null;
   const s = sessions.get(token);
@@ -111,4 +140,5 @@ function logout(token) { sessions.delete(token); }
 
 load();
 
-module.exports = { login, logout, resolve, changePassword, get, checkStrength, FILE };
+module.exports = { login, logout, resolve, changePassword, updateUsername, get, checkStrength, admins, FILE };
+

@@ -82,6 +82,16 @@
         <button class="btn" id="toggleRegBtn">切换开关</button>
       </div>
     </div>
+    <div class="toolbar" style="justify-content:space-between;border-top:1px solid var(--line);">
+      <div style="display:flex;align-items:center;gap:12px;">
+        <span style="font-weight:600;font-size:13.5px;color:#1e293b;">当前管理员用户名:</span>
+        <code id="adminUsernamePill" style="font-family:ui-monospace,Menlo,monospace;background:#eef2ff;color:#4f46e5;font-weight:700;padding:3px 10px;border-radius:6px;border:1px solid #c7d2fe;">admin</code>
+        <span class="muted" style="font-size:12px;">(建议将默认 admin 修改为自定义账号，杜绝密码暴力破解攻击)</span>
+      </div>
+      <div>
+        <button class="btn primary" id="changeAdminUserBtn">修改管理员用户名</button>
+      </div>
+    </div>
   </div>
 
   <div class="panel">
@@ -410,7 +420,68 @@ $('#addAcctBtn').onclick = async () => {
 
 $('#reloadAcct').onclick = loadAccounts;
 
-window.AdminAuth.boot(() => { loadConfig(); loadAccounts(); loadCodes(); });
+async function loadAdminStatus() {
+  const r = await AF('/api/auth/status').then((x) => x.json()).catch(() => ({}));
+  if (r.username) {
+    $('#adminUsernamePill').textContent = r.username;
+  }
+}
+
+$('#changeAdminUserBtn').onclick = async () => {
+  const curUser = $('#adminUsernamePill').textContent || 'admin';
+  const res = await Swal.fire({
+    title: '修改管理员用户名',
+    html: `
+      <div style="text-align:left;display:flex;flex-direction:column;gap:12px;margin-top:10px;">
+        <p style="font-size:13px;color:#64748b;margin:0;">
+          当前用户名: <b>${esc(curUser)}</b><br>
+          修改后，请使用新的用户名登录管理后台，可有效防范暴力破解。
+        </p>
+        <div>
+          <label style="font-size:12px;font-weight:700;color:#475569;">新管理员用户名</label>
+          <input id="swal-new-admin" class="swal2-input" value="${esc(curUser)}" placeholder="支持字母、数字、点、下划线或邮箱" style="width:100%;margin:4px 0 0;font-size:14px;">
+        </div>
+      </div>
+    `,
+    showCancelButton: true,
+    confirmButtonText: '保存修改',
+    cancelButtonText: '取消',
+    confirmButtonColor: ACC,
+    cancelButtonColor: '#8b92a8',
+    reverseButtons: true,
+    focusConfirm: false,
+    preConfirm: () => {
+      const u = ($('#swal-new-admin').value || '').trim();
+      if (!u) { Swal.showValidationMessage('用户名不能为空'); return false; }
+      if (u.length < 3 || u.length > 32) { Swal.showValidationMessage('长度需在 3-32 位之间'); return false; }
+      if (!/^[a-zA-Z0-9_@.-]+$/.test(u)) { Swal.showValidationMessage('仅支持字母、数字、点、下划线或邮箱'); return false; }
+      return u;
+    }
+  });
+
+  if (!res.isConfirmed) return;
+  const newName = res.value;
+  const r = await AF('/api/auth/profile', {
+    method: 'POST',
+    headers: { 'Content-Type': 'application/json' },
+    body: JSON.stringify({ username: newName }),
+  }).then((x) => x.json());
+
+  if (r.code !== 200) {
+    Swal.fire({ icon: 'error', title: '修改失败', text: r.message || '未知错误', confirmButtonColor: ACC });
+    return;
+  }
+
+  $('#adminUsernamePill').textContent = r.username;
+  Swal.fire({
+    icon: 'success',
+    title: '用户名修改成功',
+    text: `管理员用户名已更新为: ${r.username}`,
+    confirmButtonColor: ACC,
+  });
+};
+
+window.AdminAuth.boot(() => { loadAdminStatus(); loadConfig(); loadAccounts(); loadCodes(); });
 </script>
 </body>
 </html>
