@@ -64,7 +64,7 @@
             return;
         }
         grid.innerHTML = books.map(function (b) {
-            var cover = b.cover || '/image/default_cover.png';
+            var cover = b.cover ? ('/proxy_image?url=' + encodeURIComponent(b.cover)) : '/image/default_cover.png';
             var detailUrl = '/book_detail?source=' + encodeURIComponent('晋江')
                 + '&name=' + encodeURIComponent(b.novelname || '')
                 + '&bookid=' + encodeURIComponent(b.novelid || '');

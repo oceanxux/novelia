@@ -1,21 +1,19 @@
-# Novelia 后端 — 本地/服务器部署
+# Novelia 后端 — 服务器部署 (使用 GHCR 预构建镜像)
 # 用法:
-#   docker compose up -d --build
+#   docker compose up -d
 #   数据持久化在 ./data (运行时账号/书池/兑换码), 头像在 ./public/uploads
 services:
   novelia:
-    build: .
-    image: novelia:latest
+    image: ghcr.io/oceanxux/novelia:latest
     container_name: novelia
     restart: unless-stopped
     ports:
       - "7001:7001"
     environment:
-      PORT: "7001"
-      DATA_DIR: /app/data
-      # 后台路径 (安全: 改成别人猜不到的路径, 如 /my-panel-8x2; 默认 /admin)
+      # PORT / DATA_DIR 有镜像默认值 (7001 / /app/data), 无需重复
+      # 后台路径: 默认 /admin, 改成别人猜不到的路径更安全 (改后原 /admin 返回 404)
       ADMIN_PATH: "/admin"
-      # 初始管理员 (首次启动生成 data/admins.json; 不设则 admin / admin123, 登录后强制改密)
+      # 初始管理员 (首次启动生成 data/admins.json; 默认 admin / admin123, 登录后强制改密)
       # ADMIN_USER: "admin"
       # ADMIN_PASS: "换成强密码"
       # 自定义用户 (JSON 数组): 不设则无前台账号, 需通过注册或后台创建

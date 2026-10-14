@@ -627,7 +627,8 @@
             }
             box.innerHTML = '<div style="display:grid;grid-template-columns:repeat(auto-fill, minmax(130px, 1fr));gap:14px;">' +
                 list.slice(0, 12).map(function(item) {
-                    const cover = item.cover || '/image/default_cover.png';
+                    const rawCover = item.cover;
+                    const cover = rawCover ? ('/proxy_image?url=' + encodeURIComponent(rawCover)) : '/image/default_cover.png';
                     const href = '/book_detail?source=' + encodeURIComponent(item.source || '') +
                         '&url=' + encodeURIComponent(item.url || '') +
                         '&bookid=' + encodeURIComponent(item.bookid || '');

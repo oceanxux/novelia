@@ -13,7 +13,8 @@
     }
 
     function cardHTML(b) {
-        var cover = b.cover || '/image/default_cover.png';
+        var rawCover = b.cover;
+        var cover = rawCover ? ('/proxy_image?url=' + encodeURIComponent(rawCover)) : '/image/default_cover.png';
         var author = b.author || '佚名';
         return '<a class="book-card" href="' + detailHref(b) + '">' +
             '<div class="cover-wrap">' +
@@ -49,7 +50,8 @@
             }
             section.style.display = 'block';
             box.innerHTML = history.slice(0, 10).map(function (item) {
-                var cover = item.cover || '/image/default_cover.png';
+                var rawCover = item.cover;
+                var cover = rawCover ? ('/proxy_image?url=' + encodeURIComponent(rawCover)) : '/image/default_cover.png';
                 var href = '/book_detail?source=' + encodeURIComponent(item.source || '') +
                     '&url=' + encodeURIComponent(item.url || '') +
                     '&bookid=' + encodeURIComponent(item.bookid || '');
