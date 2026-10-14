@@ -108,7 +108,13 @@ async function challenge(host, base) {
     // 若系统无 Chrome 报错，补充清晰中文提示
     throw new Error(`CF 源 ${host}: 环境未安装 Chrome/Chromium 浏览器，无法通过 Cloudflare 挑战 (${err.message})`);
   }
-  const ctx = await pw.chromium.launchPersistentContext(PROFILE, getLaunchOptions({
+  const hostProfile = path.join(PROFILE, host.replace(/[^a-zA-Z0-9_-]/g, '_'));
+  try {
+    const lockFile = path.join(hostProfile, 'SingletonLock');
+    if (fs.existsSync(lockFile)) fs.unlinkSync(lockFile);
+  } catch (e) {}
+
+  const ctx = await pw.chromium.launchPersistentContext(hostProfile, getLaunchOptions({
     viewport: null,
     userAgent: ua,
   }));
