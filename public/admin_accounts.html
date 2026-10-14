@@ -1,0 +1,271 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>自留地 · 账户管理</title>
+<link rel="stylesheet" href="/theme.css">
+<link href="/css/sweetalert2.min.css" rel="stylesheet">
+<style>
+  .layout { display: flex; flex-direction: column; gap: 24px; padding: 24px 30px 60px; max-width: 1440px; margin: 0 auto; }
+  .panel { background: var(--panel); border: 1px solid var(--line); border-radius: 18px; box-shadow: var(--shadow); overflow: hidden; }
+  .panel h2 { font-size: 16px; margin: 0; padding: 18px 24px; border-bottom: 1px solid var(--line); font-weight: 800; display: flex; align-items: center; gap: 8px; color: #0f172a; background: #fafbff; }
+  .panel h2 .spacer { flex: 1; }
+  .table-responsive { width: 100%; overflow-x: auto; -webkit-overflow-scrolling: touch; }
+  table { width: 100%; border-collapse: collapse; font-size: 13.5px; white-space: nowrap; }
+  th, td { text-align: left; padding: 13px 20px; border-bottom: 1px solid var(--line-2); vertical-align: middle; }
+  th { color: var(--mut); font-weight: 700; font-size: 12px; background: #f8fafc; letter-spacing: 0.3px; }
+  tr:last-child td { border-bottom: 0; }
+  tr:hover td { background: #fafbff; }
+  
+  .pill { display: inline-flex; align-items: center; justify-content: center; min-width: 54px; padding: 3px 10px; border-radius: 999px; font-size: 11.5px; font-weight: 700; letter-spacing: .2px; }
+  .pill.vip { background: #fef3c7; color: #b45309; border: 1px solid #fde68a; }
+  .pill.norm { background: #f1f5f9; color: #64748b; }
+  .pill.disabled { background: #fee2e2; color: #dc2626; border: 1px solid #fecaca; }
+  .pill.enabled { background: #dcfce7; color: #16a34a; border: 1px solid #bbf7d0; }
+  .pill.web-on { background: #e0f2fe; color: #0284c7; border: 1px solid #bae6fd; }
+  .pill.web-off { background: #f3f4f6; color: #9ca3af; border: 1px solid #e5e7eb; }
+  .pill.used { background: #fee2e2; color: #b91c1c; }
+  .pill.free { background: #dcfce7; color: #15803d; }
+  
+  .btn { border: 1px solid var(--line); background: #fff; border-radius: 9px; padding: 5px 12px; font-size: 12px; font-weight: 600; cursor: pointer; font-family: inherit; transition: all .16s ease; white-space: nowrap; display: inline-flex; align-items: center; gap: 4px; }
+  .btn:hover { border-color: var(--acc); color: var(--acc); background: #f8fafc; }
+  .btn.warn { color: #d97706; border-color: #fde68a; }
+  .btn.warn:hover { border-color: #d97706; background: #fffbeb; }
+  .btn.danger { color: #dc2626; border-color: #fecaca; }
+  .btn.danger:hover { border-color: #dc2626; background: #fef2f2; color: #dc2626; }
+  .btn.primary { background: linear-gradient(135deg, #6366f1, #8b5cf6); color: #fff; border-color: transparent; }
+  .btn.primary:hover { opacity: .95; color: #fff; box-shadow: 0 2px 8px rgba(99,102,241,0.25); }
+  
+  .ops { display: flex; gap: 6px; align-items: center; flex-wrap: nowrap; }
+  .email-cell { font-weight: 600; color: #1e293b; max-width: 200px; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+  .nick-cell { color: #475569; max-width: 140px; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+  
+  .toolbar { display: flex; gap: 12px; align-items: center; padding: 16px 20px; border-bottom: 1px solid var(--line); flex-wrap: wrap; background: #fafbff; }
+  .toolbar input { border: 1px solid var(--line); border-radius: 10px; padding: 7px 12px; font-size: 13px; width: 110px; font-family: inherit; outline: none; background: #fff; }
+  .toolbar input:focus { border-color: var(--acc); box-shadow: 0 0 0 3px rgba(99,102,241,0.15); }
+  .codes-box { padding: 16px 20px; }
+  .codes-box textarea { width: 100%; min-height: 96px; border: 1px solid var(--line); border-radius: 12px; padding: 12px 14px; font-family: ui-monospace, Menlo, monospace; font-size: 13px; resize: vertical; outline: none; background: #f8fafc; }
+  .codes-box textarea:focus { border-color: var(--acc); background: #fff; }
+  .muted { color: var(--mut); font-size: 12.5px; }
+  @media (max-width: 960px) { .layout { grid-template-columns: 1fr; } }
+</style>
+</head>
+<body>
+<div class="topbar">
+  <div class="brand"><span class="dot">📚</span> 自留地</div>
+  <nav class="nav">
+    <a href="/booklist_index">首页</a>
+    <a href="/debug">发现</a>
+    <a href="__ADMIN_PATH__">书源</a>
+    <a href="__ADMIN_PATH__/accounts" class="on">账户</a>
+  </nav>
+  <div class="spacer"></div>
+  <span class="status" id="topstatus">账户管理</span>
+</div>
+
+<div class="layout">
+  <div class="panel">
+    <h2><i>👤</i> 账户列表 <span class="spacer"></span><button class="btn" id="reloadAcct">⟳ 刷新</button></h2>
+    <div class="table-responsive">
+      <table>
+        <thead>
+          <tr>
+            <th style="width:220px">邮箱</th>
+            <th style="width:140px">昵称</th>
+            <th style="width:90px">会员</th>
+            <th style="width:90px">账号状态</th>
+            <th style="width:100px">网页阅读</th>
+            <th style="width:70px">设备数</th>
+            <th style="min-width:320px">操作</th>
+          </tr>
+        </thead>
+        <tbody id="acctBody"></tbody>
+      </table>
+    </div>
+  </div>
+
+  <div class="panel">
+    <h2><i>🎫</i> 兑换码管理 <span class="spacer"></span></h2>
+    <div class="toolbar">
+      <span class="muted">生成数量</span>
+      <input type="number" id="genCount" value="10" min="1" max="100">
+      <span class="muted">有效期(天, 0=永久)</span>
+      <input type="number" id="genDays" value="0" min="0">
+      <button class="btn primary" id="genBtn">生成兑换码</button>
+    </div>
+    <div class="codes-box">
+      <textarea id="codesOut" readonly placeholder="生成的兑换码会显示在这里 (每行一个)"></textarea>
+      <div class="muted" id="codesHint" style="margin-top:8px"></div>
+    </div>
+    <div class="table-responsive">
+      <table>
+        <thead><tr><th>兑换码</th><th>状态</th><th>使用者</th><th>操作</th></tr></thead>
+        <tbody id="codeBody"></tbody>
+      </table>
+    </div>
+  </div>
+</div>
+
+<script src="/js/sweetalert2.all.min.js"></script>
+<script>window.__ADMIN_BASE__ = '__ADMIN_PATH__';</script>
+<script src="/js/admin-auth.js"></script>
+<script>
+const $ = (s) => document.querySelector(s);
+const AF = (p, o) => window.AdminAuth.fetch(p, o);
+const esc = (s) => String(s == null ? '' : s).replace(/[&<>"]/g, (c) => ({ '&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;' }[c]));
+const fmt = (ts) => ts ? new Date(ts).toLocaleString('zh-CN') : '—';
+const ACC = '#5b6cff';
+
+async function loadAccounts() {
+  const r = await AF('/api/accounts').then((x) => x.json());
+  const rows = (r.data || []).map((u) => {
+    const isDis = !!u.disabled;
+    const canWeb = u.allow_web_read !== false;
+    return `
+    <tr style="${isDis ? 'background:rgba(254,242,242,0.6);' : ''}">
+      <td class="email-cell" title="${esc(u.email)}">${esc(u.email)}</td>
+      <td class="nick-cell" title="${esc(u.nickname)}">${esc(u.nickname)}</td>
+      <td><span class="pill ${u.is_member ? 'vip' : 'norm'}">${u.is_member ? '会员' : '普通'}</span></td>
+      <td><span class="pill ${isDis ? 'disabled' : 'enabled'}">${isDis ? '已禁用' : '正常'}</span></td>
+      <td><span class="pill ${canWeb ? 'web-on' : 'web-off'}">${canWeb ? '已允许' : '已禁止'}</span></td>
+      <td style="color:var(--mut);font-weight:600">${u.devices} 台</td>
+      <td>
+        <div class="ops">
+          <button class="btn ${isDis ? 'primary' : 'warn'}" data-act="toggle_disable" data-email="${esc(u.email)}" data-val="${isDis}">${isDis ? '解禁账号' : '禁用账号'}</button>
+          <button class="btn" data-act="toggle_web" data-email="${esc(u.email)}" data-val="${canWeb}" title="控制是否允许在网页端打开阅读器阅读">${canWeb ? '禁网页读' : '允网页读'}</button>
+          <button class="btn" data-act="${u.is_member ? 'unmember' : 'member'}" data-email="${esc(u.email)}">${u.is_member ? '取消会员' : '设为会员'}</button>
+          <button class="btn" data-act="pwd" data-email="${esc(u.email)}">重置密码</button>
+          <button class="btn danger" data-act="del" data-email="${esc(u.email)}">删除</button>
+        </div>
+      </td>
+    </tr>`;
+  }).join('') || '<tr><td colspan="7" class="muted" style="padding:24px;text-align:center">暂无账户</td></tr>';
+  $('#acctBody').innerHTML = rows;
+}
+
+async function loadCodes() {
+  const r = await AF('/api/codes').then((x) => x.json());
+  const rows = (r.data || []).map((c) => `
+    <tr>
+      <td style="font-family:ui-monospace,Menlo,monospace">${esc(c.code)}</td>
+      <td><span class="pill ${c.used_by ? 'used' : 'free'}">${c.used_by ? '已使用' : '未使用'}</span></td>
+      <td class="muted">${esc(c.used_by || '—')}</td>
+      <td><button class="btn danger" data-code="${esc(c.code)}">删除</button></td>
+    </tr>`).join('') || '<tr><td colspan="4" class="muted" style="padding:20px">暂无兑换码</td></tr>';
+  $('#codeBody').innerHTML = rows;
+  $('#codesHint').textContent = `共 ${(r.data || []).length} 个 · 未使用 ${(r.data || []).filter((c) => !c.used_by).length} 个`;
+}
+
+async function resetPassword(email) {
+  const res = await Swal.fire({
+    title: '重置密码',
+    html: `为账户 <b>${esc(email)}</b> 设置新密码`,
+    input: 'text',
+    inputPlaceholder: '留空则随机生成 (6-12 位)',
+    inputAttributes: { autocapitalize: 'off', autocorrect: 'off', spellcheck: 'false' },
+    showCancelButton: true,
+    confirmButtonText: '确认重置',
+    cancelButtonText: '取消',
+    confirmButtonColor: ACC,
+    cancelButtonColor: '#8b92a8',
+    reverseButtons: true,
+    focusConfirm: false,
+    preConfirm: (val) => {
+      const v = (val || '').trim();
+      if (v && (v.length < 6 || v.length > 12)) { Swal.showValidationMessage('密码长度需在 6-12 位之间'); return false; }
+      return v;
+    },
+  });
+  if (!res.isConfirmed) return;
+  const password = res.value || '';
+  const r = await AF('/api/accounts/' + encodeURIComponent(email) + '/password', {
+    method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ password }),
+  }).then((x) => x.json());
+  if (r.error) { Swal.fire({ icon: 'error', title: '重置失败', text: r.error, confirmButtonColor: ACC }); return; }
+  const copied = await navigator.clipboard.writeText(r.password).then(() => true).catch(() => false);
+  Swal.fire({
+    icon: 'success',
+    title: '密码已重置',
+    html: `账户 <b>${esc(r.email)}</b><br><br>新密码: <code style="font-family:ui-monospace,Menlo,monospace;background:#f1f3fa;padding:3px 9px;border-radius:6px;color:${ACC};font-weight:700">${esc(r.password)}</code><br><br><span class="muted">${copied ? '已复制到剪贴板' : '请手动记录该密码'}</span>`,
+    confirmButtonText: '完成',
+    confirmButtonColor: ACC,
+  });
+}
+
+document.addEventListener('click', async (e) => {
+  const b = e.target.closest('button[data-act], button[data-code]');
+  if (!b) return;
+  if (b.dataset.code) {
+    const c = await Swal.fire({
+      title: '删除兑换码', html: `确认删除 <b>${esc(b.dataset.code)}</b> ?`, icon: 'warning',
+      showCancelButton: true, confirmButtonText: '删除', cancelButtonText: '取消',
+      confirmButtonColor: '#ef4444', cancelButtonColor: '#8b92a8', reverseButtons: true,
+    });
+    if (!c.isConfirmed) return;
+    await AF('/api/codes/' + encodeURIComponent(b.dataset.code), { method: 'DELETE' });
+    loadCodes();
+    return;
+  }
+  const email = b.dataset.email;
+  if (b.dataset.act === 'del') {
+    const c = await Swal.fire({
+      title: '删除账户', html: `确认删除 <b>${esc(email)}</b> ?<br><span class="muted">此操作不可恢复</span>`, icon: 'warning',
+      showCancelButton: true, confirmButtonText: '删除', cancelButtonText: '取消',
+      confirmButtonColor: '#ef4444', cancelButtonColor: '#8b92a8', reverseButtons: true,
+    });
+    if (!c.isConfirmed) return;
+    await AF('/api/accounts/' + encodeURIComponent(email), { method: 'DELETE' });
+    loadAccounts();
+  } else if (b.dataset.act === 'pwd') {
+    resetPassword(email);
+  } else if (b.dataset.act === 'toggle_disable') {
+    const curDis = b.dataset.val === 'true';
+    const actionText = curDis ? '解除禁用' : '禁用';
+    const c = await Swal.fire({
+      title: `${actionText}账户`,
+      html: `确定要${actionText} <b>${esc(email)}</b> 吗？${curDis ? '' : '<br><span class="muted">禁用后该用户将无法登录与使用任何接口</span>'}`,
+      icon: curDis ? 'question' : 'warning',
+      showCancelButton: true,
+      confirmButtonText: actionText,
+      cancelButtonText: '取消',
+      confirmButtonColor: curDis ? ACC : '#ef4444',
+      cancelButtonColor: '#8b92a8',
+      reverseButtons: true,
+    });
+    if (!c.isConfirmed) return;
+    await AF('/api/accounts/' + encodeURIComponent(email) + '/toggle_disable', {
+      method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ disabled: !curDis }),
+    });
+    loadAccounts();
+  } else if (b.dataset.act === 'toggle_web') {
+    const curAllow = b.dataset.val === 'true';
+    const actionText = curAllow ? '禁止网页端看书' : '允许网页端看书';
+    await AF('/api/accounts/' + encodeURIComponent(email) + '/toggle_web_read', {
+      method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ allow_web_read: !curAllow }),
+    });
+    loadAccounts();
+  } else {
+    const member = b.dataset.act === 'member';
+    await AF('/api/accounts/' + encodeURIComponent(email) + '/member', {
+      method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ member }),
+    });
+    loadAccounts();
+  }
+});
+
+$('#genBtn').onclick = async () => {
+  const count = parseInt($('#genCount').value, 10) || 1;
+  const expires_days = parseInt($('#genDays').value, 10) || 0;
+  const r = await AF('/api/codes', {
+    method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ count, expires_days }),
+  }).then((x) => x.json());
+  $('#codesOut').value = (r.codes || []).map((c) => c.code).join('\n');
+  loadCodes();
+};
+$('#reloadAcct').onclick = loadAccounts;
+
+window.AdminAuth.boot(() => { loadAccounts(); loadCodes(); });
+</script>
+</body>
+</html>

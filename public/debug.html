@@ -1,0 +1,314 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>自留地 · 发现</title>
+<link rel="stylesheet" href="/theme.css">
+<style>
+  .wrap { max-width: 1320px; margin: 0 auto; padding: 22px 22px 0; }
+
+  /* 搜索面板 */
+  .searchbar {
+    display: flex; align-items: flex-end; gap: 12px; flex-wrap: wrap;
+    padding: 18px 20px; border-radius: var(--radius-lg);
+    background: rgba(255,255,255,.86); backdrop-filter: saturate(180%) blur(16px);
+    -webkit-backdrop-filter: saturate(180%) blur(16px);
+    border: 1px solid rgba(255,255,255,.9); box-shadow: var(--shadow-lg);
+  }
+  .searchbar .kw { flex: 1 1 320px; }
+  .searchbar .kw input { width: 100%; font-size: 15px; padding: 12px 15px; border-radius: 12px; }
+  .searchbar .go {
+    padding: 12px 24px; border-radius: 12px; font-size: 14.5px;
+  }
+  .searchbar .mini input, .searchbar .mini select { padding: 8px 12px; }
+
+  /* 源区 */
+  .srcpanel { margin-top: 22px; }
+  .srcpanel .hd { display: flex; align-items: center; gap: 10px; margin-bottom: 13px; }
+  .srcpanel .hd .t { font-size: 13px; font-weight: 800; color: var(--fg-2); letter-spacing: .3px; }
+  .srcpanel .hd .sub { font-size: 12px; color: var(--mut); }
+  .srcpanel .hd .spacer { flex: 1; }
+  .chip {
+    display: inline-flex; align-items: center; gap: 6px; padding: 5px 12px; border-radius: 999px;
+    background: var(--panel-3); color: var(--mut); font-size: 12px; font-weight: 700; cursor: pointer;
+    border: 1px solid transparent; transition: all .15s;
+  }
+  .chip:hover { color: var(--acc); background: var(--acc-weak); }
+  .chip.on { background: var(--grad); color: #fff; box-shadow: 0 4px 12px -4px rgba(91,108,255,.6); }
+
+  /* 结果区 */
+  .workspace { margin-top: 22px; padding-bottom: 24px; }
+  .wsgrid {
+    display: grid; grid-template-columns: minmax(340px, 400px) 1fr; gap: 18px; align-items: start;
+  }
+  .panel {
+    background: var(--panel); border: 1px solid var(--line); border-radius: var(--radius);
+    box-shadow: var(--shadow); overflow: hidden;
+  }
+  .panel .ph {
+    display: flex; align-items: center; gap: 9px; padding: 13px 16px; border-bottom: 1px solid var(--line);
+    font-size: 13px; font-weight: 800; color: var(--fg-2); position: relative; z-index: 2;
+    background: rgba(255,255,255,.92); backdrop-filter: blur(12px); -webkit-backdrop-filter: blur(12px);
+  }
+  .panel .ph .cnt { font-weight: 700; color: var(--mut); font-size: 12px; }
+  .panel .pb { max-height: calc(100vh - 62px - 150px); overflow: auto; }
+  .panel .pb.tall { max-height: calc(100vh - 62px - 110px); }
+
+  .statusbar {
+    display: flex; align-items: center; gap: 10px; margin-top: 16px; padding: 10px 15px;
+    background: rgba(255,255,255,.7); border: 1px solid var(--line); border-radius: 12px;
+  }
+  .statusbar .status { flex: 1; }
+  .dotlive { width: 7px; height: 7px; border-radius: 50%; background: var(--ok); box-shadow: 0 0 0 3px var(--ok-weak); }
+  @media (max-width: 860px) {
+    .wsgrid { grid-template-columns: 1fr; }
+    .panel .pb { max-height: none; }
+  }
+</style>
+</head>
+<body>
+<div class="topbar">
+  <div class="brand"><span class="dot">📚</span> 自留地</div>
+  <nav class="nav">
+    <a href="/booklist_index">首页</a>
+    <a href="/debug" class="on">发现</a>
+    <a href="__ADMIN_PATH__">管理</a>
+  </nav>
+  <div class="spacer"></div>
+  <span class="status" id="topstatus">就绪</span>
+</div>
+
+<div class="wrap">
+  <div class="searchbar">
+    <label class="fld kw">关键词 <span class="hint">书名 / 作者</span>
+      <input id="key" placeholder="试试「斗破苍穹」" value="斗破苍穹">
+    </label>
+    <label class="fld mini">源站
+      <select id="source"></select>
+    </label>
+    <button class="primary go" id="go">🔍 搜索</button>
+  </div>
+
+  <div class="srcpanel">
+    <div class="hd">
+      <span class="t">书源</span>
+      <span class="sub" id="srccount">加载中…</span>
+      <span class="spacer"></span>
+      <span class="chip on" id="chipAgg">☁️ 聚合搜索</span>
+      <span class="chip" id="chipClear">清空选择</span>
+    </div>
+    <div class="tiles" id="srcgrid"></div>
+  </div>
+
+  <div class="workspace">
+    <div class="statusbar">
+      <span class="dotlive"></span>
+      <span class="status" id="status">选择书源后搜索, 或直接用聚合搜索</span>
+    </div>
+  </div>
+</div>
+
+<div class="wrap" id="main" style="display:none">
+  <div class="wsgrid">
+    <div class="panel">
+      <div class="ph"><span id="listHead">搜索结果</span><span class="cnt" id="listCnt"></span></div>
+      <div class="pb" id="list"></div>
+    </div>
+    <div class="panel">
+      <div class="ph"><span id="detailHead">书籍详情 / 目录</span></div>
+      <div class="pb tall" id="detail"><div class="empty">← 点左侧任意一本书查看详情与目录</div></div>
+    </div>
+  </div>
+</div>
+
+<div class="reader" id="reader" style="display:none">
+  <div class="rbar">
+    <button class="ghost" id="rclose">✕ 关闭</button>
+    <span class="ttl" id="rtitle">—</span>
+    <div class="spacer"></div>
+    <div class="rnav">
+      <button id="rprev">← 上一章</button>
+      <button id="rnext">下一章 →</button>
+    </div>
+  </div>
+  <div class="rbody"><div class="rcontent" id="rcontent"></div></div>
+</div>
+
+<script>
+const $ = (s) => document.querySelector(s);
+const state = { sources: [], books: [], book: null, catalog: null, chapterIdx: -1 };
+
+function esc(s) { return String(s == null ? '' : s).replace(/[&<>"]/g, (c) => ({ '&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;' }[c])); }
+function st(msg, cls = '') { $('#status').innerHTML = cls ? `<span class="${cls}">${msg}</span>` : msg; }
+function topst(msg) { $('#topstatus').textContent = msg; }
+
+// 按源名生成稳定的渐变色, 让瓦片有彩色图标感
+const PALETTE = [
+  ['#5b6cff','#8a5cff'], ['#3ec6d8','#4a8dff'], ['#ff7a59','#ff4d8d'],
+  ['#12a366','#3ec6a0'], ['#f0a020','#ff7a59'], ['#8a5cff','#c65cff'],
+  ['#4a8dff','#3ec6d8'], ['#e5484d','#ff7a59'],
+];
+function colorOf(name) {
+  let h = 0; for (let i = 0; i < name.length; i++) h = (h * 31 + name.charCodeAt(i)) >>> 0;
+  const [a, b] = PALETTE[h % PALETTE.length];
+  return `linear-gradient(135deg, ${a}, ${b})`;
+}
+function iconOf(name) { return name.slice(0, 1); }
+
+async function loadSources() {
+  const r = await fetch('/sources').then((r) => r.json()).catch(() => ({ data: [] }));
+  state.sources = r.data || [];
+  $('#source').innerHTML = '<option value="">☁️ 聚合搜索</option>'
+    + state.sources.map((s) => `<option value="${esc(s.name)}">${esc(s.name)}</option>`).join('');
+  $('#srccount').textContent = state.sources.length ? `${state.sources.length} 个已注册` : '暂无';
+  $('#srcgrid').innerHTML = state.sources.map((s) => `
+    <button class="tile" data-name="${esc(s.name)}">
+      <span class="ic" style="background:${colorOf(s.name)}">${esc(iconOf(s.name))}</span>
+      <span class="tx">
+        <span class="n">${esc(s.name)}</span>
+        <span class="u">${esc(s.base || (s.builtin ? '内置模块' : '—'))}</span>
+      </span>
+    </button>`).join('') || '<div class="empty">还没有任何源, 去 <a href="__ADMIN_PATH__">管理</a> 添加</div>';
+  document.querySelectorAll('.tile').forEach((b) => b.onclick = () => {
+    const name = b.dataset.name;
+    $('#source').value = ($('#source').value === name) ? '' : name;
+    syncTiles();
+  });
+  syncTiles();
+}
+
+function syncTiles() {
+  const v = $('#source').value;
+  document.querySelectorAll('.tile').forEach((x) => x.classList.toggle('on', x.dataset.name === v));
+  $('#chipAgg').classList.toggle('on', !v);
+  $('#chipAgg').textContent = v ? '☁️ 聚合搜索' : '☁️ 聚合搜索 (当前)';
+}
+
+async function doSearch() {
+  const key = $('#key').value.trim();
+  if (!key) return;
+  const source = $('#source').value;
+  $('#go').disabled = true;
+  st('<span class="spin"></span> 搜索中…');
+  $('#main').style.display = 'block';
+  $('#list').innerHTML = '';
+  $('#listCnt').textContent = '';
+  $('#detail').innerHTML = '<div class="empty">← 点左侧任意一本书</div>';
+  try {
+    const q = new URLSearchParams({ login: 'search', key, page: '1' });
+    if (source) q.set('source', source);
+    const r = await fetch('/search?' + q).then((r) => r.json());
+    if (!r.isSuccess) throw new Error(r.error || '搜索失败');
+    const data = r.data || [];
+    state.books = data;
+    $('#listHead').textContent = source ? `搜索结果 · ${source}` : '搜索结果 · 聚合';
+    $('#listCnt').textContent = data.length ? `${data.length} 条` : '';
+    if (!data.length) { $('#list').innerHTML = '<div class="empty">无结果</div>'; st('0 条结果', 'err'); return; }
+    $('#list').innerHTML = '<div class="booklist">' + data.map((b, i) => `
+      <div class="bookrow" data-i="${i}">
+        ${b.cover ? `<img src="${esc(b.cover)}" loading="lazy" onerror="this.replaceWith(Object.assign(document.createElement('div'),{className:'noimg'}))">` : '<div class="noimg"></div>'}
+        <div class="m">
+          <div class="t">${esc(b.title)}</div>
+          <div class="s">${esc(b.author || '—')}</div>
+          <div class="s">${esc(b.latestChapterTitle || '')}</div>
+          <div class="s"><span class="pill user">${esc(b.source)}</span></div>
+        </div>
+      </div>`).join('') + '</div>';
+    document.querySelectorAll('.bookrow').forEach((el) => el.onclick = () => openBook(data[+el.dataset.i], el));
+    st(`搜索成功: ${data.length} 条`, 'ok');
+    topst(`搜索成功 · ${data.length} 条`);
+  } catch (e) { st('搜索失败: ' + e.message, 'err'); }
+  finally { $('#go').disabled = false; }
+}
+
+async function openBook(book, el) {
+  document.querySelectorAll('.bookrow').forEach((e) => e.classList.remove('active'));
+  if (el) el.classList.add('active');
+  $('#detail').innerHTML = '<div class="empty"><span class="spin"></span> 加载详情与目录…</div>';
+  try {
+    const d = await fetch('/details', {
+      method: 'POST', headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ source: book.source, url: book.book_url }),
+    }).then((r) => r.json());
+    if (d.code !== 200) throw new Error(d.message);
+    const info = d.data;
+    state.book = info;
+    $('#detailHead').textContent = info.title;
+    $('#detail').innerHTML = `
+      <div class="detail">
+        <div class="hd">
+          ${info.cover ? `<img src="${esc(info.cover)}" onerror="this.style.visibility='hidden'">` : '<div class="noimg" style="width:100px;height:134px;border-radius:12px;background:var(--panel-3)"></div>'}
+          <div>
+            <h2>${esc(info.title)}</h2>
+            <div class="meta">
+              <span>${esc(info.author || '—')}</span>
+              <span class="pill user">${esc(info.source)}</span>
+              ${info.tags ? `<span>${esc(info.tags)}</span>` : ''}
+              ${info.wordCount ? `<span>${esc(info.wordCount)}</span>` : ''}
+            </div>
+            <div class="meta" style="margin-top:6px;">${info.latestChapterTitle ? '最新: ' + esc(info.latestChapterTitle) : ''}</div>
+            <div style="margin-top:10px;">
+              <a href="/book_detail?source=${encodeURIComponent(info.source)}&url=${encodeURIComponent(info.book_url || '')}&bookid=${encodeURIComponent(info.bookid || '')}" target="_blank" class="pill" style="background:var(--grad);color:#fff;padding:4px 12px;font-size:12px;text-decoration:none;display:inline-flex;align-items:center;gap:4px;">
+                <span>📖 在沉浸阅读器中打开</span>
+              </a>
+            </div>
+          </div>
+        </div>
+        <div class="desc">${esc(info.desc || '(无简介)')}</div>
+        <div id="tocBox"><div class="empty"><span class="spin"></span> 加载目录…</div></div>
+      </div>`;
+    const c = await fetch('/catalog', {
+      method: 'POST', headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ source: info.source, url: info.book_url, bookid: info.bookid }),
+    }).then((r) => r.json());
+    if (c.code !== 200) throw new Error(c.message);
+    state.catalog = c.data;
+    $('#tocBox').innerHTML = `<div class="sect" style="margin-top:20px">目录 · ${c.data.length} 章</div>
+      <div class="toc">${c.data.map((ch, i) => `<a href="#" data-i="${i}">${esc(ch.title)}</a>`).join('')}</div>`;
+    document.querySelectorAll('.toc a').forEach((a) => a.onclick = (e) => { e.preventDefault(); readChapter(+a.dataset.i); });
+    st(`目录加载完成: ${c.data.length} 章`, 'ok');
+  } catch (e) { $('#detail').innerHTML = `<div class="empty" style="color:var(--err)">加载失败: ${esc(e.message)}</div>`; st('失败: ' + e.message, 'err'); }
+}
+
+async function readChapter(idx) {
+  const ch = state.catalog[idx];
+  if (!ch) return;
+  state.chapterIdx = idx;
+  const info = state.book;
+  $('#reader').style.display = 'flex';
+  $('#rtitle').textContent = ch.title;
+  $('#rcontent').innerHTML = '<div class="empty"><span class="spin"></span> 加载正文…</div>';
+  $('#rprev').disabled = idx <= 0;
+  $('#rnext').disabled = idx >= state.catalog.length - 1;
+  try {
+    const r = await fetch('/api/chapter', {
+      method: 'POST', headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ cid: ch.cid, source: info.source, url: info.book_url, bookid: info.bookid }),
+    }).then((r) => r.json());
+    if (!r.success) throw new Error(r.message || '正文加载失败');
+    const html = r.content || '';
+    $('#rcontent').innerHTML = html || '<div class="empty">(空正文)</div>';
+    document.querySelector('.rbody').scrollTop = 0;
+    st(`正文: ${ch.title} · ${html.length} 字符`, 'ok');
+  } catch (e) { $('#rcontent').innerHTML = `<div class="empty" style="color:var(--err)">正文加载失败: ${esc(e.message)}</div>`; st('正文失败: ' + e.message, 'err'); }
+}
+
+$('#go').onclick = doSearch;
+$('#key').addEventListener('keydown', (e) => { if (e.key === 'Enter') doSearch(); });
+$('#source').addEventListener('change', syncTiles);
+$('#chipAgg').onclick = () => { $('#source').value = ''; syncTiles(); };
+$('#chipClear').onclick = () => { $('#source').value = ''; syncTiles(); };
+$('#rclose').onclick = () => { $('#reader').style.display = 'none'; };
+$('#rprev').onclick = () => readChapter(state.chapterIdx - 1);
+$('#rnext').onclick = () => readChapter(state.chapterIdx + 1);
+document.addEventListener('keydown', (e) => {
+  if ($('#reader').style.display === 'none') return;
+  if (e.key === 'Escape') $('#rclose').click();
+  if (e.key === 'ArrowLeft') $('#rprev').click();
+  if (e.key === 'ArrowRight') $('#rnext').click();
+});
+loadSources();
+</script>
+</body>
+</html>

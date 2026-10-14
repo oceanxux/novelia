@@ -1,0 +1,599 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>自留地 · 书源管理</title>
+<link rel="stylesheet" href="/theme.css">
+<style>
+  .layout { display: grid; grid-template-columns: 320px 1fr; min-height: calc(100vh - 62px); }
+
+  /* 左栏 */
+  .side {
+    border-right: 1px solid var(--line); background: rgba(255,255,255,.82);
+    backdrop-filter: blur(14px); -webkit-backdrop-filter: blur(14px);
+    display: flex; flex-direction: column; min-height: 0;
+  }
+  .side .tools { display: flex; gap: 10px; padding: 16px 16px 14px; border-bottom: 1px solid var(--line); }
+  .side .tools .primary { flex: 1; border-radius: 10px; }
+  .side .tools .ghost { width: 42px; display: grid; place-items: center; font-size: 16px; border-radius: 10px; }
+  .side .slist { overflow: auto; flex: 1; padding: 10px; }
+
+  .srow {
+    display: flex; align-items: center; gap: 12px; padding: 11px 12px; border-radius: 14px; cursor: pointer;
+    transition: all .16s ease; margin-bottom: 4px; border: 1px solid transparent;
+  }
+  .srow:hover { background: rgba(255,255,255,.95); border-color: var(--line); }
+  .srow.on { background: var(--acc-weak); border-color: rgba(99,102,241,.25); box-shadow: 0 4px 12px -3px rgba(99,102,241,.15); }
+  .srow .ic { flex: 0 0 auto; width: 36px; height: 36px; border-radius: 11px; display: grid; place-items: center; color: #fff; font-weight: 800; font-size: 15px; }
+  .srow .tx { min-width: 0; flex: 1; }
+  .srow .n { font-weight: 800; font-size: 14px; display: flex; align-items: center; gap: 8px; color: #0f172a; }
+  .srow .u { font-size: 11px; color: var(--mut); white-space: nowrap; overflow: hidden; text-overflow: ellipsis; margin-top: 1px; }
+  .side .foot { padding: 12px 18px; border-top: 1px solid var(--line); font-size: 12px; color: var(--mut); }
+
+  /* 右栏 */
+  .main { overflow: auto; padding: 26px 30px 48px; }
+  .editor { max-width: 960px; }
+  .editor .ehd { display: flex; align-items: center; gap: 14px; margin-bottom: 8px; }
+  .editor h2 { font-size: 21px; margin: 0; font-weight: 800; letter-spacing: -.3px; color: #0f172a; }
+
+  fieldset {
+    border: 1px solid var(--line); border-radius: 18px; background: var(--panel); margin: 0 0 18px;
+    padding: 18px 20px 20px; box-shadow: var(--shadow-sm); transition: border-color .15s;
+  }
+  fieldset:focus-within { border-color: rgba(99,102,241,.3); }
+  legend {
+    font-size: 12.5px; font-weight: 800; color: var(--acc); padding: 0 10px; letter-spacing: .3px;
+    display: flex; align-items: center; gap: 8px;
+  }
+  legend .ico { display: inline-grid; place-items: center; width: 20px; height: 20px; border-radius: 7px; background: var(--acc-weak); font-size: 11.5px; }
+  .row { display: grid; grid-template-columns: repeat(auto-fit, minmax(220px, 1fr)); gap: 14px; margin-bottom: 14px; }
+  .row:last-child { margin-bottom: 0; }
+  .row .full { grid-column: 1 / -1; }
+  label.fld textarea { min-height: 72px; resize: vertical; font-family: ui-monospace, Menlo, monospace; font-size: 12.5px; }
+  .actions { display: flex; gap: 12px; align-items: center; padding: 18px 0; margin-bottom: 24px; border-bottom: 1px solid var(--line); }
+  .actions .spacer { flex: 1; }
+
+  .testout { margin-top: 10px; border: 1.5px solid rgba(99,102,241,.25); background: #ffffff; box-shadow: 0 4px 20px -4px rgba(99,102,241,.08); }
+  .step { display: flex; align-items: center; gap: 12px; padding: 10px 14px; border-bottom: 1px solid var(--line-2); font-size: 13px; }
+  .step:last-child { border-bottom: 0; }
+  .step .lab { width: 54px; font-weight: 800; color: var(--fg-2); }
+  .step .ms { color: var(--mut); font-size: 12px; font-variant-numeric: tabular-nums; min-width: 52px; }
+  .step .det { color: var(--mut); font-size: 12px; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; flex: 1; }
+  .readonly input, .readonly select, .readonly textarea { background: var(--panel-3); color: #64748b; pointer-events: none; }
+
+  /* 定制模块只读卡 */
+  .customcard {
+    background: var(--panel); border: 1px solid var(--line); border-radius: var(--radius);
+    box-shadow: var(--shadow); padding: 26px 28px; max-width: 620px;
+  }
+  .customcard .big { display: flex; align-items: center; gap: 15px; margin-bottom: 16px; }
+  .customcard .big .ic { width: 52px; height: 52px; border-radius: 15px; display: grid; place-items: center; color: #fff; font-weight: 800; font-size: 24px; }
+  .customcard h2 { font-size: 20px; margin: 0 0 3px; font-weight: 800; }
+  .customcard .meta { color: var(--mut); font-size: 13px; }
+  .customcard p { color: var(--fg-2); font-size: 13.5px; line-height: 1.8; }
+  .customcard ul { color: var(--fg-2); font-size: 13px; line-height: 1.9; padding-left: 20px; margin: 10px 0 18px; }
+  .customcard code.k { font-family: ui-monospace, Menlo, monospace; }
+
+  /* 导入弹窗 */
+  .modal-overlay {
+    position: fixed; inset: 0; background: rgba(15, 23, 42, 0.45);
+    backdrop-filter: blur(4px); -webkit-backdrop-filter: blur(4px);
+    display: none; place-items: center; z-index: 100; padding: 20px;
+  }
+  .modal-overlay.open { display: grid; }
+  .modal-card {
+    background: #ffffff; border-radius: 20px; width: 100%; max-width: 600px;
+    box-shadow: 0 20px 40px -10px rgba(15, 23, 42, 0.25); border: 1px solid var(--line);
+    display: flex; flex-direction: column; overflow: hidden;
+  }
+  .modal-hd {
+    padding: 18px 22px; border-bottom: 1px solid var(--line); display: flex; align-items: center;
+    background: #fafbff;
+  }
+  .modal-hd h3 { margin: 0; font-size: 16px; font-weight: 800; color: #0f172a; display: flex; align-items: center; gap: 8px; }
+  .modal-hd .spacer { flex: 1; }
+  .modal-bd { padding: 20px 22px; }
+  .modal-bd textarea {
+    width: 100%; min-height: 220px; font-family: ui-monospace, Menlo, monospace; font-size: 12.5px;
+    line-height: 1.6; border: 1.5px solid var(--line); border-radius: 12px; padding: 12px 14px;
+    outline: none; background: #f8fafc;
+  }
+  .modal-bd textarea:focus { border-color: var(--acc); background: #ffffff; box-shadow: 0 0 0 3px rgba(99,102,241,0.12); }
+  .modal-ft {
+    padding: 14px 22px; border-top: 1px solid var(--line); display: flex; justify-content: flex-end; gap: 10px;
+    background: #fafbff;
+  }
+</style>
+</head>
+<body>
+<div class="topbar">
+  <div class="brand"><span class="dot">📚</span> 自留地</div>
+  <nav class="nav">
+    <a href="/booklist_index">首页</a>
+    <a href="/debug">发现</a>
+    <a href="__ADMIN_PATH__" class="on">书源</a>
+    <a href="__ADMIN_PATH__/accounts">账户</a>
+  </nav>
+  <div class="spacer"></div>
+  <span class="status" id="topstatus">书源管理</span>
+</div>
+
+<div class="layout">
+  <div class="side">
+    <div class="tools">
+      <button class="primary" id="newBtn">+ 新增书源</button>
+      <button class="ghost" id="importBtn" title="导入 JSON 书源">📥</button>
+      <button class="ghost" id="refreshBtn" title="刷新列表">⟳</button>
+    </div>
+    <div class="slist" id="slist"></div>
+    <div class="foot" id="sfoot"></div>
+  </div>
+
+  <div class="main">
+    <div class="editor" id="editor"><div class="empty">← 选择左侧书源查看 / 编辑, 或点「新增书源」</div></div>
+  </div>
+</div>
+
+<!-- 导入 JSON 模态窗 -->
+<div class="modal-overlay" id="importModal">
+  <div class="modal-card">
+    <div class="modal-hd">
+      <h3><span>📥</span> 导入 JSON 书源配置</h3>
+      <span class="spacer"></span>
+      <button class="ghost" id="closeImportModal" style="width:30px;height:30px;padding:0;font-size:14px;border-radius:8px;">✕</button>
+    </div>
+    <div class="modal-bd">
+      <div class="hint" style="margin-bottom:12px;">支持粘贴单个<b>自建书源 JSON</b> 或 <b>阅读 3.0 (Legado) 书源配置</b>，系统将自动识别转换并载入编辑器。</div>
+      <textarea id="importJsonText" placeholder='粘贴 JSON 内容，例如：&#10;{&#10;  "name": "某小说网",&#10;  "base": "https://example.com",&#10;  "search": { ... },&#10;  "detail": { ... },&#10;  "catalog": { ... },&#10;  "content": { ... }&#10;}&#10;或 Legado 书源格式对象'></textarea>
+      <div id="importErr" style="color:var(--err);font-size:12px;margin-top:8px;min-height:18px;"></div>
+    </div>
+    <div class="modal-ft">
+      <button class="ghost" id="cancelImportBtn">取消</button>
+      <button class="primary" id="doImportBtn">解析并填入编辑器</button>
+    </div>
+  </div>
+</div>
+
+<script>window.__ADMIN_BASE__ = '__ADMIN_PATH__';</script>
+<script src="/js/admin-auth.js"></script>
+<script>
+const $ = (s) => document.querySelector(s);
+const AF = (p, o) => window.AdminAuth.fetch(p, o);
+let state = { sources: [], current: null };
+
+function esc(s) { return String(s == null ? '' : s).replace(/[&<>"]/g, (c) => ({ '&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;' }[c])); }
+function topst(m) { $('#topstatus').textContent = m; }
+
+const PALETTE = [
+  ['#5b6cff','#8a5cff'], ['#3ec6d8','#4a8dff'], ['#ff7a59','#ff4d8d'],
+  ['#12a366','#3ec6a0'], ['#f0a020','#ff7a59'], ['#8a5cff','#c65cff'],
+  ['#4a8dff','#3ec6d8'], ['#e5484d','#ff7a59'],
+];
+function colorOf(name) {
+  let h = 0; for (let i = 0; i < name.length; i++) h = (h * 31 + name.charCodeAt(i)) >>> 0;
+  const [a, b] = PALETTE[h % PALETTE.length];
+  return `linear-gradient(135deg, ${a}, ${b})`;
+}
+
+async function loadList(selectName) {
+  const r = await AF('/api/sources').then((r) => r.json());
+  state.sources = r.data || [];
+  $('#slist').innerHTML = state.sources.map((s) => {
+    const kind = s.editable ? 'user' : 'builtin';
+    const label = s.editable ? '自定义' : (s.config ? '内置' : '定制模块');
+    return `
+    <div class="srow" data-name="${esc(s.name)}">
+      <span class="ic" style="background:${colorOf(s.name)}">${esc(s.name.slice(0,1))}</span>
+      <span class="tx">
+        <span class="n">${esc(s.name)} <span class="pill ${kind}">${label}</span></span>
+        <span class="u">${esc(s.base || (s.config ? '—' : '代码适配器'))}</span>
+      </span>
+    </div>`;
+  }).join('') || '<div class="empty">还没有源</div>';
+  document.querySelectorAll('.srow').forEach((el) => el.onclick = () => open(el.dataset.name));
+  $('#sfoot').textContent = `${state.sources.length} 个源 · ${state.sources.filter((s) => s.editable).length} 个可编辑`;
+  if (selectName) open(selectName);
+}
+
+function blankConfig() {
+  return {
+    name: '',
+    base: '',
+    search: {
+      request: { method: 'GET', url: '/search?q={{key}}&page={{page}}' },
+      list: 'ul.list li',
+      fields: { title: 'a@text', bookUrl: 'a@href' },
+    },
+    detail: { fields: { title: 'h1@text' } },
+    catalog: { list: 'ul.chapters li', title: 'a@text', url: 'a@href' },
+    content: { content: '#content@html' },
+  };
+}
+
+function field(id, label, val, ph) {
+  return `<label class="fld">${label}<input id="${id}" value="${esc(val || '')}" placeholder="${esc(ph || '')}"></label>`;
+}
+function area(id, label, val, ph) {
+  return `<label class="fld">${label}<textarea id="${id}" placeholder="${esc(ph || '')}">${esc(val || '')}</textarea></label>`;
+}
+function lg(ico, text) { return `<legend><span class="ico">${ico}</span>${text}</legend>`; }
+
+// 定制模块 (代码适配器): 无声明式配置, 展示只读说明而非空白表单
+function renderCustom(meta) {
+  $('#editor').innerHTML = `
+    <div class="customcard">
+      <div class="big">
+        <span class="ic" style="background:${colorOf(meta.name)}">${esc(meta.name.slice(0,1))}</span>
+        <div>
+          <h2>${esc(meta.name)}</h2>
+          <div class="meta">定制模块 · 代码适配器</div>
+        </div>
+      </div>
+      <p>该源由 <code class="k">src/adapters/</code> 下的代码模块实现 (处理站点专属反爬 / 加密 / JSONP 等), 不使用声明式选择器配置, 因此<b>没有可视化配置可编辑</b>。</p>
+      <p style="margin-bottom:6px">它已正常注册并可直接使用:</p>
+      <ul>
+        <li>在 <a href="/debug">发现页</a> 选择该书源即可搜索 / 阅读。</li>
+        <li>抓取逻辑改动请直接编辑对应的适配器模块。</li>
+        <li>若想基于它做一份可视化配置, 可点下方按钮生成副本骨架再改。</li>
+      </ul>
+      <div style="display:flex;gap:10px;margin-bottom:20px">
+        <button class="ghost" id="copyBtn">另存为可视化副本</button>
+      </div>
+    </div>
+    <fieldset class="testout" id="testSection" style="margin-top:20px">
+      ${lg('🧪', '试跑测试 (实时抓取验证)')}
+      <div class="row">
+        ${field('f_testkey', '测试关键词', '斗破苍穹', '')}
+        <div style="display:flex;align-items:flex-end"><button class="primary" id="runTest">🚀 立即运行 (搜索 → 详情 → 目录 → 正文)</button></div>
+      </div>
+      <div id="testres" class="hint">点「立即运行」直接调用当前内置适配器代码抓一次, 验证爬虫是否畅通。</div>
+    </fieldset>`;
+  $('#copyBtn').onclick = () => {
+    const copyCfg = blankConfig();
+    copyCfg.name = meta.name + '-副本';
+    renderEditor({ name: copyCfg.name, editable: true, config: copyCfg, isCopy: true });
+    topst('已载入「' + meta.name + '」可视化副本，请填写有效选择器后保存');
+  };
+  $('#runTest').onclick = () => runTest(meta);
+}
+
+function renderEditor(meta) {
+  const cfg = meta.config || blankConfig();
+  const ro = !meta.editable;
+  const f = (id, label, val, ph) => field(id, label, val, ph);
+  const a = (id, label, val, ph) => area(id, label, val, ph);
+  const isNew = !meta.name || meta.isCopy;
+  $('#editor').innerHTML = `
+    <div class="ehd">
+      <h2>${esc(meta.name || '新增书源')}</h2>
+      <span class="pill ${meta.editable ? 'user' : 'builtin'}">${meta.editable ? (meta.isCopy ? '副本新建' : (isNew ? '新建' : '自定义')) : '内置 (只读)'}</span>
+    </div>
+    <div class="hint" style="margin-bottom:16px">选择器语法: <code class="k">sel@text</code> <code class="k">sel@href</code> <code class="k">sel@attr</code> <code class="k">sel@html</code>, 可加 <code class="k">##正则##替换</code>. 请求模板用 <code class="k">{{key}}</code> <code class="k">{{page}}</code>.</div>
+    ${ro ? '<div class="banner warn">内置源不可在此直接修改; 可点「另存为副本」生成自定义副本。</div>' : ''}
+    <div class="${ro ? 'readonly' : ''}">
+    <fieldset>
+      ${lg('①', '基本信息')}
+      <div class="row">
+        ${f('f_name', '源站名', cfg.name, '如 某某小说网')}
+        ${f('f_base', '站点根地址 base', cfg.base, 'https://www.example.com')}
+      </div>
+      <div class="row">
+        ${a('f_headers', '附加请求头 (JSON, 可空)', cfg.headers ? JSON.stringify(cfg.headers) : '', '{"Referer":"https://www.example.com/"}')}
+      </div>
+    </fieldset>
+    <fieldset>
+      ${lg('②', '搜索 search')}
+      <div class="row">
+        <label class="fld">请求方法
+          <select id="f_s_method">
+            <option value="GET"${(cfg.search?.request?.method || 'GET') === 'GET' ? ' selected' : ''}>GET</option>
+            <option value="POST"${cfg.search?.request?.method === 'POST' ? ' selected' : ''}>POST</option>
+          </select>
+        </label>
+        ${f('f_s_url', '请求 URL 模板', cfg.search?.request?.url, '/search?q={{key}}&page={{page}}')}
+        ${f('f_s_ct', 'POST Content-Type (可空)', cfg.search?.request?.contentType, 'application/x-www-form-urlencoded')}
+      </div>
+      <div class="row">
+        ${a('f_s_body', 'POST 请求体 (可空)', cfg.search?.request?.body, 'searchkey={{key}}&page={{page}}')}
+      </div>
+      <div class="row">
+        ${f('f_s_list', '结果列表项选择器', cfg.search?.list, 'dl.hot dd')}
+      </div>
+      <div class="row">
+        ${f('f_sf_title', 'title', cfg.search?.fields?.title, 'h4 a@text')}
+        ${f('f_sf_author', 'author', cfg.search?.fields?.author, 'p span@text')}
+        ${f('f_sf_bookUrl', 'bookUrl', cfg.search?.fields?.bookUrl, 'h4 a@href')}
+        ${f('f_sf_cover', 'cover', cfg.search?.fields?.cover, 'img@src')}
+        ${f('f_sf_desc', 'desc', cfg.search?.fields?.desc, 'p:eq(1)@text')}
+      </div>
+    </fieldset>
+    <fieldset>
+      ${lg('③', '详情 detail')}
+      <div class="row">
+        ${f('f_df_title', 'title', cfg.detail?.fields?.title, 'h1@text')}
+        ${f('f_df_author', 'author', cfg.detail?.fields?.author, '.book p span@text')}
+        ${f('f_df_cover', 'cover', cfg.detail?.fields?.cover, '.book img@src')}
+        ${f('f_df_tags', 'tags', cfg.detail?.fields?.tags, '.book p:eq(1) span@text')}
+        ${f('f_df_wordCount', 'wordCount', cfg.detail?.fields?.wordCount, '')}
+        ${f('f_df_latest', 'latestChapterTitle', cfg.detail?.fields?.latestChapterTitle, '.list li:last-child a@text')}
+      </div>
+      <div class="row">
+        ${a('f_df_desc', 'desc', cfg.detail?.fields?.desc, '.description@text')}
+      </div>
+    </fieldset>
+    <fieldset>
+      ${lg('④', '目录 catalog')}
+      ${(!meta.editable && !cfg.catalog?.list) ? '<div class="hint" style="color:var(--acc);margin-bottom:8px">💡 该源目录采用定制代码模块处理 (如 JSONP/分卷分页)。</div>' : ''}
+      <div class="row">
+        ${f('f_c_list', '章节列表项选择器', cfg.catalog?.list, 'ul.list li')}
+        ${f('f_c_title', 'title', cfg.catalog?.title, 'a@text')}
+        ${f('f_c_url', 'url', cfg.catalog?.url, 'a@href')}
+      </div>
+    </fieldset>
+    <fieldset>
+      ${lg('⑤', '正文 content')}
+      ${(!meta.editable && !cfg.content?.content) ? '<div class="hint" style="color:var(--acc);margin-bottom:8px">💡 该源正文采用定制代码模块处理 (如 动态解密/验证挑战)。</div>' : ''}
+      <div class="row">
+        ${f('f_ct_content', 'content', cfg.content?.content, '#content@html')}
+        ${f('f_ct_next', 'next (分页, 可空)', cfg.content?.next, '#next@href')}
+      </div>
+    </fieldset>
+    </div>
+    <div class="actions">
+      <button class="primary" id="saveBtn"${ro ? ' disabled' : ''}>${isNew ? '创建' : '保存'}</button>
+      <button class="ghost" id="copyBtn">另存为副本</button>
+      <button class="ghost" id="testBtn">🧪 试跑测试并滚动到底部</button>
+      <div class="spacer"></div>
+      <button class="danger" id="delBtn"${ro || isNew ? ' disabled' : ''}>删除</button>
+    </div>
+    <fieldset class="testout" id="testSection">
+      ${lg('🧪', '试跑测试 (实时抓取验证)')}
+      <div class="row">
+        ${f('f_testkey', '测试关键词', meta.name === '得奇' ? '剑来' : '斗破苍穹', '')}
+        <div style="display:flex;align-items:flex-end"><button class="primary" id="runTest">🚀 立即运行 (搜索 → 详情 → 目录 → 正文)</button></div>
+      </div>
+      <div id="testres" class="hint">点「立即运行」用当前表单配置实际抓一次, 验证选择器是否正确 (不落盘).</div>
+    </fieldset>`;
+  bindEditor(meta);
+}
+
+function val(id) { const e = document.getElementById(id); return e ? e.value.trim() : ''; }
+function opt(o, k, v) { if (v) o[k] = v; return o; }
+
+function collectConfig() {
+  const headersRaw = val('f_headers');
+  const cfg = {
+    name: val('f_name'),
+    base: val('f_base'),
+    search: {
+      request: { method: val('f_s_method') || 'GET', url: val('f_s_url') },
+      list: val('f_s_list'),
+      fields: { title: val('f_sf_title'), bookUrl: val('f_sf_bookUrl') },
+    },
+    detail: { fields: { title: val('f_df_title') } },
+    catalog: { list: val('f_c_list'), title: val('f_c_title'), url: val('f_c_url') },
+    content: { content: val('f_ct_content') },
+  };
+  if (headersRaw) { try { cfg.headers = JSON.parse(headersRaw); } catch (e) { throw new Error('附加请求头不是合法 JSON'); } }
+  opt(cfg.search.request, 'body', val('f_s_body'));
+  opt(cfg.search.request, 'contentType', val('f_s_ct'));
+  opt(cfg.search.fields, 'author', val('f_sf_author'));
+  opt(cfg.search.fields, 'cover', val('f_sf_cover'));
+  opt(cfg.search.fields, 'desc', val('f_sf_desc'));
+  opt(cfg.detail.fields, 'author', val('f_df_author'));
+  opt(cfg.detail.fields, 'cover', val('f_df_cover'));
+  opt(cfg.detail.fields, 'desc', val('f_df_desc'));
+  opt(cfg.detail.fields, 'tags', val('f_df_tags'));
+  opt(cfg.detail.fields, 'wordCount', val('f_df_wordCount'));
+  opt(cfg.detail.fields, 'latestChapterTitle', val('f_df_latest'));
+  opt(cfg.content, 'next', val('f_ct_next'));
+  return cfg;
+}
+
+function bindEditor(meta) {
+  $('#saveBtn').onclick = () => save(meta);
+  $('#delBtn').onclick = () => del(meta);
+  $('#testBtn').onclick = () => runTest(meta);
+  $('#runTest').onclick = () => runTest(meta);
+  $('#copyBtn').onclick = () => {
+    let cfg;
+    try { cfg = collectConfig(); } catch (e) { cfg = meta.config ? JSON.parse(JSON.stringify(meta.config)) : blankConfig(); }
+    // 补全缺失的关键选择器，避免保存报错
+    if (!cfg.catalog || !cfg.catalog.list) cfg.catalog = { list: 'ul.list li', title: 'a@text', url: 'a@href' };
+    if (!cfg.content || !cfg.content.content) cfg.content = { content: '#content@html' };
+    if (!cfg.search || !cfg.search.list) cfg.search = { request: { method: 'GET', url: '/search?q={{key}}' }, list: 'dl dd', fields: { title: 'a@text', bookUrl: 'a@href' } };
+    if (!cfg.detail || !cfg.detail.fields || !cfg.detail.fields.title) cfg.detail = { fields: { title: 'h1@text' } };
+    cfg.name = (cfg.name || meta.name || '书源') + '-副本';
+    renderEditor({ name: cfg.name, editable: true, config: cfg, isCopy: true });
+    topst('已载入副本「' + cfg.name + '」，点击「创建」保存');
+  };
+}
+
+async function open(name) {
+  document.querySelectorAll('.srow').forEach((el) => el.classList.toggle('on', el.dataset.name === name));
+  const r = await AF('/api/sources/' + encodeURIComponent(name));
+  if (!r.ok) { $('#editor').innerHTML = `<div class="empty">${esc((await r.json()).error)}</div>`; return; }
+  const meta = (await r.json()).data;
+  // 无配置且不可编辑 => 定制模块 (代码适配器), 走专用只读视图
+  if (!meta.config && !meta.editable) renderCustom(meta);
+  else renderEditor(meta);
+  topst('查看: ' + name);
+}
+
+async function save(meta) {
+  let cfg;
+  try { cfg = collectConfig(); } catch (e) { return banner(e.message, 'err'); }
+  // 判断是新建还是修改已有：如果 meta 带有 isCopy 标志、或原本没有名称、或源列表里不存在，视为新建
+  const existingNames = (state.sources || []).map((s) => s.name);
+  const isNew = meta.isCopy || !meta.name || !existingNames.includes(meta.name);
+  const url = isNew ? '/api/sources' : '/api/sources/' + encodeURIComponent(meta.name);
+  const r = await AF(url, { method: isNew ? 'POST' : 'PUT', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify(cfg) });
+  const j = await r.json();
+  if (!r.ok) return banner(j.error, 'err');
+  banner('已保存: ' + j.name, 'ok');
+  await loadList(j.name);
+}
+
+async function del(meta) {
+  if (!confirm(`确定删除书源「${meta.name}」? 此操作不可撤销。`)) return;
+  const r = await AF('/api/sources/' + encodeURIComponent(meta.name), { method: 'DELETE' });
+  const j = await r.json();
+  if (!r.ok) return banner(j.error, 'err');
+  $('#editor').innerHTML = '<div class="empty">已删除</div>';
+  await loadList();
+}
+
+function banner(msg, cls) {
+  const box = $('#editor');
+  const old = box.querySelector('.banner.tmp'); if (old) old.remove();
+  const div = document.createElement('div');
+  div.className = 'banner tmp ' + cls;
+  div.textContent = msg;
+  box.insertBefore(div, box.firstChild);
+  setTimeout(() => div.remove(), 4000);
+}
+
+async function runTest(meta) {
+  const target = document.getElementById('testSection');
+  if (target) {
+    target.scrollIntoView({ behavior: 'smooth', block: 'start' });
+    target.style.transition = 'box-shadow .3s ease';
+    target.style.boxShadow = '0 0 0 3px rgba(99,102,241,.3)';
+    setTimeout(() => { if (target) target.style.boxShadow = ''; }, 1500);
+  }
+  let cfg;
+  try { cfg = collectConfig(); } catch (e) { cfg = null; }
+  $('#testres').innerHTML = '<span class="spin"></span> 抓取中…';
+  const sourceName = (meta && meta.name) || (cfg && cfg.name) || val('f_name');
+  const body = {
+    keyword: val('f_testkey') || '斗破苍穹',
+    sourceName: sourceName,
+    config: cfg || (meta && meta.config) || { name: sourceName, base: 'http://placeholder' },
+  };
+  const r = await AF('/api/test', { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify(body) });
+  const j = await r.json();
+  renderTest(j);
+}
+
+function renderTest(j) {
+  if (j.error && !j.report) { $('#testres').innerHTML = `<span style="color:var(--err)">${esc(j.error)}</span>`; return; }
+  const rep = j.report || { steps: [] };
+  const rows = rep.steps.map((s) => `
+    <div class="step">
+      <span class="pill ${s.ok ? 'ok' : 'err'}">${s.ok ? '✓' : '✗'}</span>
+      <span class="lab">${esc(s.label)}</span>
+      <span class="ms">${s.ms}ms</span>
+      <span class="det">${esc(s.error || summarize(s))}</span>
+    </div>`).join('');
+  const head = j.ok ? `<div class="banner ok">全部通过 · 搜索 ${rep.bookCount || 0} 条 · 目录 ${rep.chapterCount || 0} 章</div>`
+    : `<div class="banner err">未通过${j.error ? ': ' + esc(j.error) : ''}</div>`;
+  const sample = (rep.sample || []).map((b) => `<div class="step"><span class="det">${esc(b.title)} · ${esc(b.author || '—')} · ${esc(b.book_url)}</span></div>`).join('');
+  $('#testres').innerHTML = head + rows + (sample ? `<div class="sect" style="margin:12px 0 4px">搜索样例</div>${sample}` : '');
+}
+
+function summarize(s) {
+  if (!s.value) return '';
+  if (Array.isArray(s.value)) return `${s.value.length} 项`;
+  if (typeof s.value === 'string') return s.value.slice(0, 120).replace(/\s+/g, ' ');
+  if (s.value.content) return `${s.value.content.length} 字符`;
+  return JSON.stringify(s.value).slice(0, 120);
+}
+
+// ---- JSON 导入与 Legado 转换 ----
+function parseImportJson(text) {
+  let parsed = JSON.parse(text);
+  if (Array.isArray(parsed)) parsed = parsed[0];
+  if (!parsed || typeof parsed !== 'object') throw new Error('JSON 不是有效对象');
+
+  // 判断是否为 Legado 书源
+  if (parsed.bookSourceUrl || parsed.bookSourceName || parsed.ruleSearch) {
+    const sUrl = parsed.searchUrl || '';
+    let method = 'GET';
+    let url = sUrl;
+    let body = '';
+    if (sUrl.includes('@find=') || sUrl.includes('method:')) {
+      // 简单兼容
+      method = /POST/i.test(sUrl) ? 'POST' : 'GET';
+    }
+    const rSearch = parsed.ruleSearch || {};
+    const rBook = parsed.ruleBookInfo || {};
+    const rToc = parsed.ruleToc || {};
+    const rContent = parsed.ruleContent || {};
+
+    return {
+      name: parsed.bookSourceName || '导入书源',
+      base: parsed.bookSourceUrl || '',
+      search: {
+        request: { method, url: url.split(',')[0] || '/search?key={{key}}' },
+        list: rSearch.bookList || 'div',
+        fields: {
+          title: rSearch.name || 'a@text',
+          author: rSearch.author || '',
+          bookUrl: rSearch.bookUrl || 'a@href',
+          cover: rSearch.coverUrl || '',
+          desc: rSearch.intro || '',
+        },
+      },
+      detail: {
+        fields: {
+          title: rBook.name || 'h1@text',
+          author: rBook.author || '',
+          cover: rBook.coverUrl || '',
+          desc: rBook.intro || '',
+          tags: rBook.kind || '',
+          latestChapterTitle: rBook.lastChapter || '',
+        },
+      },
+      catalog: {
+        list: rToc.chapterList || 'ul li',
+        title: rToc.chapterName || 'a@text',
+        url: rToc.chapterUrl || 'a@href',
+      },
+      content: {
+        content: rContent.content || '#content@html',
+        next: rContent.nextContentUrl || '',
+      },
+    };
+  }
+
+  // 自身配置格式
+  if (!parsed.name) parsed.name = '导入书源';
+  if (!parsed.base) parsed.base = 'https://example.com';
+  if (!parsed.search) parsed.search = { request: { method: 'GET', url: '/search?key={{key}}' }, list: '', fields: {} };
+  if (!parsed.detail) parsed.detail = { fields: {} };
+  if (!parsed.catalog) parsed.catalog = { list: '', title: '', url: '' };
+  if (!parsed.content) parsed.content = { content: '' };
+  return parsed;
+}
+
+$('#importBtn').onclick = () => {
+  $('#importModal').classList.add('open');
+  $('#importErr').textContent = '';
+  $('#importJsonText').value = '';
+  $('#importJsonText').focus();
+};
+$('#closeImportModal').onclick = () => $('#importModal').classList.remove('open');
+$('#cancelImportBtn').onclick = () => $('#importModal').classList.remove('open');
+
+$('#doImportBtn').onclick = () => {
+  const text = $('#importJsonText').value.trim();
+  if (!text) { $('#importErr').textContent = '请先粘贴 JSON 内容'; return; }
+  try {
+    const cfg = parseImportJson(text);
+    $('#importModal').classList.remove('open');
+    document.querySelectorAll('.srow').forEach((el) => el.classList.remove('on'));
+    renderEditor({ name: cfg.name, editable: true, config: cfg, isCopy: true });
+    topst('已导入并填入: ' + cfg.name);
+    banner('JSON 解析成功，已载入编辑器。检查选择器后点击「创建」保存入库。', 'ok');
+  } catch (e) {
+    $('#importErr').textContent = '解析失败: ' + e.message;
+  }
+};
+
+$('#newBtn').onclick = () => { document.querySelectorAll('.srow').forEach((el) => el.classList.remove('on')); renderEditor({ name: '', editable: true, config: blankConfig() }); topst('新增书源'); };
+$('#refreshBtn').onclick = () => loadList();
+window.AdminAuth.boot(() => loadList());
+</script>
+</body>
+</html>

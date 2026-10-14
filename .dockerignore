@@ -1,0 +1,22 @@
+node_modules
+.git
+.gitignore
+.DS_Store
+*.log
+.env
+.env.*
+
+# 运行时数据: 用 volume 挂载, 不打进镜像
+data/users.json
+data/redeem_codes.json
+data/bookpool.json
+data/jj_account.json
+data/user-sources.json
+data/admins.json
+
+# 生成器中间产物
+tools/gen_sources.json
+tools/sources_draft.js
+
+# 本地专用 (探针/技术文档, 不打进镜像)
+tools/local/

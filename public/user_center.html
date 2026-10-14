@@ -1,0 +1,881 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0">
+    <meta name="theme-color" content="#cfe6cd">
+    <title>用户中心 - 自留地</title>
+    <link href="/css/all.min.css" rel="stylesheet">
+    <link href="/css/bootstrap.min.css" rel="stylesheet">
+    <link href="/css/sweetalert2.min.css" rel="stylesheet">
+    <link href="/css/user_center.css" rel="stylesheet">
+    <script src="/js/token-manager.js"></script>
+</head>
+<body>
+<nav class="top-nav">
+    <a href="/" class="brand"><i class="fas fa-book-bookmark"></i> 自留地</a>
+    <div class="actions">
+        <a href="javascript:void(0)" class="btn btn-sm" id="themeToggle" onclick="toggleTheme()" title="切换主题（白天/夜间/护眼绿）"><i class="fas fa-seedling"></i></a>
+        <a href="booklist_index" class="btn btn-sm"><i class="fas fa-home"></i></a>
+        <a href="javascript:void(0)" onclick="userLogout()" class="btn btn-sm btn-danger"><i class="fas fa-sign-out-alt"></i> 退出</a>
+    </div>
+</nav>
+
+<div class="container">
+    <!-- 用户资料卡片 -->
+    <div class="profile-card">
+        <div class="profile-row">
+            <div class="avatar-ring">
+                <img src="{{AVATAR}}" class="profile-avatar" id="avatar-image" onclick="document.getElementById('avatar-input').click()" onerror="this.src='https://www.gravatar.com/avatar/00000000000000000000000000000000?d=identicon&amp;s=200'">
+            </div>
+            <form method="POST" enctype="multipart/form-data" style="display:none;">
+                <input type="file" name="avatar" id="avatar-input" accept="image/jpeg,image/png,image/gif">
+                <input type="hidden" name="api_key" value="{{API_KEY}}">
+            </form>
+            <div class="profile-info">
+                <div class="name">
+                    {{NICKNAME}}                        <span class="profile-badge {{BADGE_CLASS}}">
+                        <i class="fas {{BADGE_ICON}}"></i>                            {{BADGE_TEXT}}                        </span>
+                </div>
+                <div class="email">{{EMAIL_MASKED}}</div>
+                <div class="profile-stats">
+                    <div class="stat"><div class="stat-value">{{STAT_ONLINE}}</div><div class="stat-label">在线次数</div></div>
+                    <div class="stat"><div class="stat-value">{{STAT_TODAY}}</div><div class="stat-label">今日次数</div></div>
+                    <div class="stat"><div class="stat-value">{{STAT_DEVICES}}</div><div class="stat-label">设备</div></div>
+                    <div class="stat"><div class="stat-value">{{STAT_STATUS}}</div><div class="stat-label">在线状态</div></div>
+                </div>
+                <div class="profile-actions">
+                    <a href="book_source.json" class="btn btn-primary-custom"><i class="fas fa-sync-alt"></i> 更新书源</a>
+                    <button class="btn btn-vip" onclick="goMemberTab()"><i class="fas fa-ticket-alt"></i> 兑换会员</button>
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <!-- 标签导航 -->
+    <div class="tabs-nav-wrapper">
+        <div class="tabs-nav" id="tabsNav">
+            <button class="tab-btn active" data-tab="overview"><i class="fas fa-chart-pie"></i> 概览</button>
+            <button class="tab-btn" data-tab="devices"><i class="fas fa-mobile-alt"></i> 设备 <span class="badge">{{STAT_DEVICES}}</span></button>
+            <button class="tab-btn" data-tab="server"><i class="fas fa-server"></i> 服务器</button>
+            <button class="tab-btn" data-tab="profile"><i class="fas fa-user-edit"></i> 信息</button>
+            <button class="tab-btn" data-tab="password"><i class="fas fa-lock"></i> 安全</button>
+            <button class="tab-btn" data-tab="downloads"><i class="fas fa-download"></i> 书源</button>
+            <button class="tab-btn" data-tab="member">👑 会员</button>
+        </div>
+        <div class="scroll-hint"><i class="fas fa-chevron-right"></i></div>
+    </div>
+
+    <!-- ===== 概览 Tab ===== -->
+    <div class="tab-pane active" id="tab-overview">
+        <div class="card">
+            <div class="card-header"><i class="fas fa-key me-2"></i> API密钥</div>
+            <div class="card-body">
+                <div class="key-box">
+                    <code id="authKeyDisplay">{{API_KEY_MASKED}}</code>
+                    <button class="btn btn-primary btn-sm" onclick="copyAuthKey()"><i class="fas fa-copy"></i> 复制</button>
+                    <button class="btn btn-outline-danger btn-sm" onclick="resetAuthKey()"><i class="fas fa-sync-alt"></i> 重置密钥</button>
+                </div>
+                <small class="text-muted mt-2 d-block"><i class="fas fa-info-circle"></i> 点击复制获取完整密钥，请妥善保管</small>
+            </div>
+        </div>
+
+        <div class="card">
+            <div class="card-header"><i class="fas fa-chart-bar me-2"></i> 使用统计</div>
+            <div class="card-body">
+                <div class="stats-grid">
+                    <div class="stat-item"><div class="value">{{STAT_ONLINE}}</div><div class="label">累计阅读</div></div>
+                    <div class="stat-item"><div class="value">{{STAT_TODAY}}</div><div class="label">今日阅读</div></div>
+                    <div class="stat-item"><div class="value">{{STAT_DEVICES}}</div><div class="label">绑定设备</div></div>
+                    <div class="stat-item"><div class="value">0</div><div class="label">在线设备</div></div>
+                    <div class="stat-item"><div class="value">{{REGISTERED}}</div><div class="label">注册时间</div></div>
+                    <div class="stat-item"><div class="value">{{LAST_USE}}</div><div class="label">最后使用</div></div>
+                </div>
+            </div>
+        </div>
+
+        <div class="card">
+            <div class="card-header d-flex justify-content-between align-items-center">
+                <span><i class="fas fa-bookmark me-2 text-primary"></i> 最近阅读与书架</span>
+                <button class="btn btn-sm btn-outline-secondary" onclick="clearReadingHistory()"><i class="fas fa-trash-alt me-1"></i>清空历史</button>
+            </div>
+            <div class="card-body">
+                <div id="user-shelf-container">
+                    <div class="text-center text-muted py-4">
+                        <i class="fas fa-book-open fa-2x mb-2" style="opacity:0.35;"></i>
+                        <p class="mb-0">暂无阅读记录，快去发现好书吧</p>
+                    </div>
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <!-- ===== 设备管理 Tab ===== -->
+    <div class="tab-pane" id="tab-devices">
+        <div class="card">
+            <div class="card-header">
+                <span><i class="fas fa-mobile-alt me-2"></i> 我的设备</span>
+                <span class="text-muted" style="font-size:0.75rem;font-weight:400;">共 {{STAT_DEVICES}} 台，0 台在线</span>
+            </div>
+            <div class="card-body" style="padding:0;">
+                {{DEVICES_HTML}}
+            </div>
+        </div>
+        <div class="text-muted small text-center mt-2">
+            <i class="fas fa-info-circle"></i> 普通用户限 1 台设备在线，会员限 3 台设备在线
+        </div>
+    </div>
+
+    <!-- ===== 服务器 Tab ===== -->
+    <div class="tab-pane" id="tab-server">
+        <div class="card">
+            <div class="card-header">
+                <span><i class="fas fa-server me-2"></i> 服务器实时状态</span>
+                <span class="text-muted" style="font-size:0.7rem;font-weight:400;" id="server-update-time">⏱ --:--:--</span>
+            </div>
+            <div class="card-body">
+                <div class="server-grid" id="server-stats-grid">
+                    <div class="server-item">
+                        <span class="server-icon" style="color:var(--primary);"><i class="fas fa-microchip"></i></span>
+                        <div class="server-value" id="server-cpu">--%</div>
+                        <div class="server-label">CPU 使用率</div>
+                        <div class="progress"><div class="progress-bar" id="server-cpu-bar" style="width: 0%; background: linear-gradient(90deg, rgb(176, 138, 46), rgb(212, 160, 23));"></div></div>
+                    </div>
+                    <div class="server-item">
+                        <span class="server-icon" style="color:var(--success);"><i class="fas fa-memory"></i></span>
+                        <div class="server-value" id="server-memory">--%</div>
+                        <div class="server-label">内存使用率</div>
+                        <div class="progress"><div class="progress-bar" id="server-memory-bar" style="width: 0%; background: linear-gradient(90deg, rgb(16, 185, 129), rgb(52, 211, 153));"></div></div>
+                    </div>
+                    <div class="server-item">
+                        <span class="server-icon" style="color:var(--info);"><i class="fas fa-network-wired"></i></span>
+                        <div class="server-value" id="server-network">↓0 ↑0 KB/s</div>
+                        <div class="server-label">网络速度</div>
+                        <div class="progress"><div class="progress-bar" id="server-network-bar" style="width: 0%; background: linear-gradient(90deg, rgb(14, 165, 233), rgb(56, 189, 248));"></div></div>
+                    </div>
+                    <div class="server-item">
+                        <span class="server-icon" style="color:var(--warning);"><i class="fas fa-clock"></i></span>
+                        <div class="server-value" id="server-uptime" style="font-size:1.1rem;">--</div>
+                        <div class="server-label">运行时间</div>
+                        <div class="progress"><div class="progress-bar" style="width:100%;background:linear-gradient(90deg,#f59e0b,#fbbf24);"></div></div>
+                    </div>
+                </div>
+                <div class="server-load">
+                    <span>负载: <span id="server-load-1">0.00</span> / <span id="server-load-5">0.00</span> / <span id="server-load-15">0.00</span></span>
+                    <span id="server-status-text"><i class="fas fa-circle text-success me-1" style="font-size:0.6rem;"></i> 运行正常</span>
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <!-- ===== 个人信息 Tab ===== -->
+    <div class="tab-pane" id="tab-profile">
+        <div class="card">
+            <div class="card-header"><i class="fas fa-user-edit me-2"></i> 编辑个人信息</div>
+            <div class="card-body">
+                <form id="profileForm">
+                    <input type="hidden" name="api_key" value="{{API_KEY}}">
+                    <input type="hidden" name="action" value="update_profile">
+                    <div class="mb-3">
+                        <label class="form-label fw-bold">昵称</label>
+                        <input type="text" class="form-control" name="nickname" value="{{NICKNAME}}" placeholder="请输入昵称" maxlength="20" required>
+                    </div>
+                    <div class="mb-3">
+                        <label class="form-label fw-bold">头像链接</label>
+                        <input type="text" class="form-control" name="avatar" value="{{AVATAR}}" placeholder="请输入头像图片链接">
+                        <small class="text-muted">支持任何图片链接，也可点击头像上传</small>
+                    </div>
+                    <button type="submit" class="btn btn-primary"><i class="fas fa-save me-2"></i>保存修改</button>
+                </form>
+            </div>
+        </div>
+    </div>
+
+    <!-- ===== 安全设置 Tab ===== -->
+    <div class="tab-pane" id="tab-password">
+        <div class="card">
+            <div class="card-header"><i class="fas fa-lock me-2"></i> 修改密码</div>
+            <div class="card-body">
+                <form id="passwordForm">
+                    <input type="hidden" name="api_key" value="{{API_KEY}}">
+                    <input type="hidden" name="action" value="change_password">
+                    <div class="mb-3">
+                        <label class="form-label fw-bold">当前密码</label>
+                        <input type="password" class="form-control" name="current_password" placeholder="请输入当前密码" required>
+                    </div>
+                    <div class="mb-3">
+                        <label class="form-label fw-bold">新密码</label>
+                        <input type="password" class="form-control" name="new_password" placeholder="至少 6 位" required minlength="6">
+                    </div>
+                    <div class="mb-3">
+                        <label class="form-label fw-bold">确认新密码</label>
+                        <input type="password" class="form-control" name="confirm_password" placeholder="再次输入" required minlength="6">
+                    </div>
+                    <button type="submit" class="btn btn-primary"><i class="fas fa-key me-2"></i>修改密码</button>
+                </form>
+            </div>
+        </div>
+    </div>
+
+    <!-- ===== 应用下载 Tab ===== -->
+    <div class="tab-pane" id="tab-downloads">
+        <div class="card">
+            <div class="card-header"><i class="fas fa-download me-2"></i> 书源导入</div>
+            <div class="card-body text-center" style="padding:40px 20px;">
+                <div style="width:76px;height:76px;margin:0 auto 16px;border-radius:22px;background:linear-gradient(135deg,#b08a2e,#d4a017);display:flex;align-items:center;justify-content:center;color:#fff;font-size:1.9rem;box-shadow:0 8px 20px rgba(176,138,46,0.35);">
+                    <i class="fas fa-book-reader"></i>
+                </div>
+                <h5 style="font-weight:700;margin-bottom:6px;">自留地聚合书源</h5>
+                <p class="text-muted" style="font-size:0.85rem;margin-bottom:18px;">在阅读 3.0 中导入下方书源 JSON, 即可搜索与阅读本站全部书源</p>
+                <a href="/book_source.json" class="btn btn-primary" style="border-radius:999px;padding:12px 46px;font-size:0.95rem;font-weight:600;box-shadow:0 6px 16px rgba(176,138,46,0.3);">
+                    <i class="fas fa-download me-2"></i>获取书源 JSON
+                </a>
+            </div>
+        </div>
+    </div>
+
+    <!-- ===== 会员兑换 Tab ===== -->
+    <div class="tab-pane" id="tab-member">
+        <div class="card">
+            <div class="card-header">👑 会员状态</div>
+            <div class="card-body">
+                <div class="member-status {{MEMBER_STATUS_CLASS}}">
+                    <div class="member-status-icon"><i class="fas {{MEMBER_ICON}}"></i></div>
+                    <div class="member-status-info">
+                        <div class="member-status-title">{{MEMBER_TITLE}}</div>
+                        <div class="member-status-desc">{{MEMBER_DESC}}</div>
+                    </div>
+                </div>
+            </div>
+        </div>
+
+        <div class="card">
+            <div class="card-header"><i class="fas fa-gift me-2"></i> 会员权益</div>
+            <div class="card-body">
+                <div class="benefit-list">
+                    <div class="benefit-item">
+                        <div class="benefit-icon"><i class="fas fa-infinity"></i></div>
+                        <div class="benefit-body">
+                            <div class="benefit-title">永久 VIP 特权</div>
+                            <div class="benefit-desc">不受限速与临时限制规则影响，不受长时间不使用清理账号规则影响</div>
+                        </div>
+                    </div>
+                    <div class="benefit-item">
+                        <div class="benefit-icon"><i class="fas fa-download"></i></div>
+                        <div class="benefit-body">
+                            <div class="benefit-title">会员专属资源</div>
+                            <div class="benefit-tags">
+                                <span>会员下载特权</span>
+                                <span>会员去广告</span>
+                                <span>某Q阅读会员内容</span>
+                                <span>某旗小说会员内容</span>
+                                <span>某江小说会员内容</span>
+                                <span>懒人听书会员内容</span>
+                                <span>喜马听书会员内容</span>
+                            </div>
+                        </div>
+                    </div>
+                    <div class="benefit-item">
+                        <div class="benefit-icon"><i class="fas fa-users"></i></div>
+                        <div class="benefit-body">
+                            <div class="benefit-title">专属会员群反馈</div>
+                            <div class="benefit-tags">
+                                <span>可用专属 VIP 书源</span>
+                                <span>加入专属反馈群</span>
+                                <span>优先处理问题反馈</span>
+                            </div>
+                        </div>
+                    </div>
+                </div>
+                <div class="benefit-tip">
+                    <i class="fas fa-info-circle"></i>
+                    <div>
+                        会员<strong>仅能通过会员兑换码</strong>开通，在下方「会员兑换码」处输入即可生效；没有兑换码可联系管理员获取。
+                    </div>
+                </div>
+            </div>
+        </div>
+
+        <div class="card">
+            <div class="card-header"><i class="fas fa-ticket-alt me-2"></i> 会员兑换码</div>
+            <div class="card-body">
+                <div class="redeem-form">
+                    <input type="text" id="redeemCodeInput" class="redeem-input" placeholder="请输入会员兑换码" maxlength="32" autocomplete="off">
+                    <button class="btn btn-primary" id="redeemBtn" onclick="redeemMemberCode()"><i class="fas fa-gift me-1"></i>立即兑换</button>
+                </div>
+                <small class="text-muted d-block mt-2"><i class="fas fa-info-circle me-1"></i>兑换码不区分大小写，可忽略空格与横线；每个兑换码仅可使用一次，兑换后立即生效</small>
+            </div>
+        </div>
+
+        <div class="card">
+            <div class="card-header">
+                <span><i class="fas fa-history me-2"></i> 我的兑换记录</span>
+                <button class="btn btn-outline-secondary btn-sm" onclick="loadMemberRecords()"><i class="fas fa-sync-alt me-1"></i>刷新</button>
+            </div>
+            <div class="card-body" style="padding:0;">
+                <div id="memberRecordsBox"><div class="empty-state"><i class="fas fa-ticket-alt"></i><h5>暂无兑换记录</h5><p class="text-muted mb-0">兑换成功后可在本页查看</p></div></div>
+            </div>
+        </div>
+    </div>
+</div>
+
+<script>
+    (function () {
+        var THEMES = ['light', 'dark', 'green'];
+        var ICONS = { light: 'fas fa-sun', dark: 'fas fa-moon', green: 'fas fa-seedling' };
+        var COLORS = { light: '#fdfbf6', dark: '#15120e', green: '#cfe6cd' };
+        var theme = null;
+        try { theme = localStorage.getItem('uc_theme'); } catch (e) {}
+        if (THEMES.indexOf(theme) === -1) {
+            var prefersDark = false;
+            try { prefersDark = window.matchMedia && window.matchMedia('(prefers-color-scheme: dark)').matches; } catch (e) {}
+            theme = prefersDark ? 'dark' : 'light';
+        }
+        function applyTheme(t) {
+            var html = document.documentElement;
+            html.classList.toggle('dark-mode', t === 'dark');
+            html.classList.toggle('green-mode', t === 'green');
+            var icon = document.querySelector('#themeToggle i');
+            if (icon) icon.className = ICONS[t];
+            var mc = document.querySelector('meta[name="theme-color"]');
+            if (mc) mc.setAttribute('content', COLORS[t]);
+        }
+        window.toggleTheme = function () {
+            theme = THEMES[(THEMES.indexOf(theme) + 1) % THEMES.length];
+            try { localStorage.setItem('uc_theme', theme); } catch (e) {}
+            applyTheme(theme);
+        };
+        document.addEventListener('DOMContentLoaded', function () { applyTheme(theme); });
+    })();
+</script>
+<script>
+    // ============ 全局 ============
+    let userApiKey = "{{API_KEY}}";
+    const userId = {{USER_ID}};
+
+    // ============ Toast ============
+    function showToast(message, type = 'success') {
+        const container = document.querySelector('.toast-container') || (() => {
+            const c = document.createElement('div');
+            c.className = 'toast-container';
+            document.body.appendChild(c);
+            return c;
+        })();
+        const el = document.createElement('div');
+        el.className = `toast-custom ${type}`;
+        el.textContent = message;
+        container.appendChild(el);
+        setTimeout(() => { el.remove(); }, 2800);
+    }
+
+    // ============ 服务器状态实时刷新（仅服务器Tab激活时轮询，省电省流量） ============
+    var serverPollTimer = null;
+    function updateServerStats() {
+        fetch('/api/server_status')
+            .then(r => r.json())
+            .then(data => {
+                if (data.success) {
+                    const d = data.data;
+                    const cpu = d.cpu_usage || 0;
+                    const mem = d.memory_usage || 0;
+                    const rx = d.network_rx || 0;
+                    const tx = d.network_tx || 0;
+                    const load1 = d.load_1 || '0.00';
+                    const load5 = d.load_5 || '0.00';
+                    const load15 = d.load_15 || '0.00';
+                    const uptime = d.uptime || '--';
+
+                    document.getElementById('server-cpu').textContent = cpu + '%';
+                    document.getElementById('server-cpu-bar').style.width = Math.min(cpu, 100) + '%';
+                    document.getElementById('server-memory').textContent = mem + '%';
+                    document.getElementById('server-memory-bar').style.width = Math.min(mem, 100) + '%';
+                    document.getElementById('server-network').textContent = '↓' + rx + ' ↑' + tx + ' KB/s';
+                    document.getElementById('server-network-bar').style.width = Math.min(Math.max(rx, tx) / 10, 100) + '%';
+                    document.getElementById('server-uptime').textContent = uptime;
+                    document.getElementById('server-load-1').textContent = load1;
+                    document.getElementById('server-load-5').textContent = load5;
+                    document.getElementById('server-load-15').textContent = load15;
+
+                    const now = new Date();
+                    document.getElementById('server-update-time').textContent = '⏱ ' + now.toLocaleTimeString();
+
+                    const statusText = document.getElementById('server-status-text');
+                    if (cpu > 80 || mem > 85) {
+                        statusText.innerHTML = '<i class="fas fa-circle text-warning me-1" style="font-size:0.6rem;"></i> 服务器负载较高';
+                    } else {
+                        statusText.innerHTML = '<i class="fas fa-circle text-success me-1" style="font-size:0.6rem;"></i> 运行正常';
+                    }
+                }
+            })
+            .catch(() => {
+                document.getElementById('server-status-text').innerHTML = '<i class="fas fa-circle text-danger me-1" style="font-size:0.6rem;"></i> 获取失败';
+            });
+    }
+    function startServerPolling() {
+        if (serverPollTimer) return;
+        updateServerStats();
+        serverPollTimer = setInterval(updateServerStats, 3000);
+    }
+    function stopServerPolling() {
+        if (serverPollTimer) { clearInterval(serverPollTimer); serverPollTimer = null; }
+    }
+
+    // ============ Tab切换 ============
+    document.querySelectorAll('.tab-btn').forEach(btn => {
+        btn.addEventListener('click', function() {
+            document.querySelectorAll('.tab-btn').forEach(b => b.classList.remove('active'));
+            document.querySelectorAll('.tab-pane').forEach(p => p.classList.remove('active'));
+            this.classList.add('active');
+            document.getElementById('tab-' + this.dataset.tab).classList.add('active');
+            const url = new URL(window.location);
+            url.searchParams.set('tab', this.dataset.tab);
+            window.history.replaceState({}, '', url);
+            if (this.dataset.tab === 'member') loadMemberRecords();
+            if (this.dataset.tab === 'server') startServerPolling(); else stopServerPolling();
+        });
+    });
+
+    // 标签滚动提示
+    const tabsNav = document.querySelector('.tabs-nav');
+    if (tabsNav) {
+        tabsNav.addEventListener('scroll', function() {
+            const hint = document.querySelector('.scroll-hint');
+            if (hint) {
+                const isEnd = this.scrollLeft + this.clientWidth >= this.scrollWidth - 2;
+                hint.style.display = isEnd ? 'none' : 'flex';
+            }
+        });
+    }
+
+    const urlParams = new URLSearchParams(window.location.search);
+    const activeTab = urlParams.get('tab') || 'overview';
+    const tabBtn = document.querySelector(`.tab-btn[data-tab="${activeTab}"]`);
+    if (tabBtn) tabBtn.click();
+
+    // ============ 复制密钥 ============
+    function copyAuthKey() {
+        const key = userApiKey;
+        if (!key) { showToast('未找到密钥', 'error'); return; }
+        if (navigator.clipboard && window.isSecureContext) {
+            navigator.clipboard.writeText(key).then(() => {
+                showToast('密钥已复制');
+                const btn = document.querySelector('#authKeyDisplay')?.closest('.key-box')?.querySelector('.btn');
+                if (btn) { const t = btn.innerHTML; btn.innerHTML = '<i class="fas fa-check"></i> 已复制'; setTimeout(() => btn.innerHTML = t, 1500); }
+            }).catch(() => fallbackCopy(key));
+        } else {
+            fallbackCopy(key);
+        }
+    }
+    function fallbackCopy(text) {
+        const ta = document.createElement('textarea');
+        ta.value = text;
+        ta.style.cssText = 'position:fixed;left:-9999px;';
+        document.body.appendChild(ta);
+        ta.select();
+        try { document.execCommand('copy'); showToast('密钥已复制'); } catch(e) { showToast('复制失败', 'error'); }
+        document.body.removeChild(ta);
+    }
+
+    // ============ 重置 API 密钥 ============
+    function resetAuthKey() {
+        Swal.fire({
+            title: '重置 API 密钥？',
+            html: '重置后<strong>旧密钥立即失效</strong>，已用旧密钥配置的阅读 App 需重新填写新密钥。',
+            icon: 'warning',
+            showCancelButton: true,
+            confirmButtonText: '确认重置',
+            cancelButtonText: '取消',
+            confirmButtonColor: '#d64545'
+        }).then(function (result) {
+            if (!result.isConfirmed) return;
+            const formData = new FormData();
+            formData.append('action', 'reset_api_key');
+            formData.append('api_key', userApiKey);
+            fetch('user_center', { method: 'POST', body: formData })
+                .then(function (r) { return r.json(); })
+                .then(function (d) {
+                    if (!d.success) { showToast(d.message || '重置失败', 'error'); return; }
+                    userApiKey = d.api_key;
+                    const disp = document.getElementById('authKeyDisplay');
+                    if (disp) disp.textContent = d.api_key_masked || d.api_key;
+                    Swal.fire({
+                        title: '密钥已重置',
+                        html: '新密钥：<br><code style="font-family:ui-monospace,Menlo,monospace;background:#f1f3fa;padding:4px 10px;border-radius:6px;color:#5b6cff;font-weight:700">' + escHtml(d.api_key) + '</code><br><br><small style="color:#64748b;">请复制并重新填入阅读 App</small>',
+                        icon: 'success',
+                        confirmButtonText: '复制并关闭',
+                        confirmButtonColor: '#5b6cff'
+                    }).then(function () {
+                        if (navigator.clipboard && window.isSecureContext) {
+                            navigator.clipboard.writeText(userApiKey).catch(function () {});
+                        }
+                    });
+                })
+                .catch(function () { showToast('网络错误', 'error'); });
+        });
+    }
+
+    // ============ 会员兑换 ============
+    function escHtml(text) {
+        return String(text === null || text === undefined ? '' : text)
+            .replace(/&/g, '&amp;').replace(/</g, '&lt;').replace(/>/g, '&gt;').replace(/"/g, '&quot;');
+    }
+
+    function goMemberTab() {
+        const btn = document.querySelector('.tab-btn[data-tab="member"]');
+        if (btn) btn.click();
+    }
+
+    function redeemMemberCode() {
+        const input = document.getElementById('redeemCodeInput');
+        const btn = document.getElementById('redeemBtn');
+        if (!input || !btn) return;
+        const code = (input.value || '').trim();
+        if (!code) { showToast('请输入兑换码', 'error'); input.focus(); return; }
+
+        Swal.fire({
+            title: '确认兑换会员？',
+            html: '兑换码：<strong>' + escHtml(code.toUpperCase()) + '</strong><br><small style="color:#64748b;">每个兑换码仅可使用一次，兑换后立即生效</small>',
+            icon: 'question',
+            showCancelButton: true,
+            confirmButtonText: '确认兑换',
+            cancelButtonText: '取消',
+            confirmButtonColor: '#b08a2e'
+        }).then(function(result) {
+            if (result.isConfirmed) submitRedeemCode(code);
+        });
+    }
+
+    function submitRedeemCode(code) {
+        const input = document.getElementById('redeemCodeInput');
+        const btn = document.getElementById('redeemBtn');
+        if (!btn) return;
+
+        btn.disabled = true;
+        btn.innerHTML = '<i class="fas fa-spinner fa-spin me-1"></i>兑换中...';
+
+        fetch('user_center', {
+            method: 'POST',
+            headers: { 'Content-Type': 'application/x-www-form-urlencoded' },
+            body: 'action=redeem_member_code&code=' + encodeURIComponent(code)
+        })
+        .then(r => r.json())
+        .then(d => {
+            if (d.success) {
+                showToast(d.message || '兑换成功');
+                if (input) input.value = '';
+                setTimeout(function() { window.location.reload(); }, 1200);
+            } else {
+                btn.disabled = false;
+                btn.innerHTML = '<i class="fas fa-gift me-1"></i>立即兑换';
+                showToast(d.message || '兑换失败', 'error');
+            }
+        })
+        .catch(function() {
+            btn.disabled = false;
+            btn.innerHTML = '<i class="fas fa-gift me-1"></i>立即兑换';
+            showToast('网络错误，请稍后重试', 'error');
+        });
+    }
+
+    function loadMemberRecords() {
+        const box = document.getElementById('memberRecordsBox');
+        if (!box) return;
+        box.innerHTML = '<div class="empty-state"><i class="fas fa-spinner fa-spin"></i><p class="text-muted mt-2 mb-0">加载中...</p></div>';
+
+        fetch('user_center', {
+            method: 'POST',
+            headers: { 'Content-Type': 'application/x-www-form-urlencoded' },
+            body: 'action=get_member_records'
+        })
+        .then(r => r.json())
+        .then(d => {
+            if (!d.success) {
+                box.innerHTML = '<div class="empty-state"><i class="fas fa-exclamation-circle"></i><h5>加载失败</h5><p class="text-muted mb-0">请稍后重试</p></div>';
+                return;
+            }
+            const list = d.list || [];
+            if (!list.length) {
+                box.innerHTML = '<div class="empty-state"><i class="fas fa-ticket-alt"></i><h5>暂无兑换记录</h5><p class="text-muted mb-0">兑换成功后可在本页查看</p></div>';
+                return;
+            }
+            box.innerHTML = list.map(function(item) {
+                return '<div class="record-item">' +
+                    '<div class="record-icon">👑</div>' +
+                    '<div style="flex:1;min-width:0;">' +
+                        '<div class="record-code">' + escHtml(item.masked_code || item.code) + '</div>' +
+                        '<div class="record-time">' + escHtml(item.created_at_text) + '</div>' +
+                    '</div>' +
+                    '<span class="record-tag">兑换成功</span>' +
+                '</div>';
+            }).join('');
+        })
+        .catch(function() {
+            box.innerHTML = '<div class="empty-state"><i class="fas fa-exclamation-circle"></i><h5>网络错误</h5><p class="text-muted mb-0">请稍后重试</p></div>';
+        });
+    }
+
+    function renderUserShelf() {
+        const box = document.getElementById('user-shelf-container');
+        if (!box) return;
+        try {
+            const list = JSON.parse(localStorage.getItem('reading_history') || '[]');
+            if (!list.length) {
+                box.innerHTML = '<div class="text-center text-muted py-4"><i class="fas fa-book-open fa-2x mb-2" style="opacity:0.35;"></i><p class="mb-0">暂无阅读记录，快去发现好书吧</p></div>';
+                return;
+            }
+            box.innerHTML = '<div style="display:grid;grid-template-columns:repeat(auto-fill, minmax(130px, 1fr));gap:14px;">' +
+                list.slice(0, 12).map(function(item) {
+                    const cover = item.cover || '/image/default_cover.png';
+                    const href = '/book_detail?source=' + encodeURIComponent(item.source || '') +
+                        '&url=' + encodeURIComponent(item.url || '') +
+                        '&bookid=' + encodeURIComponent(item.bookid || '');
+                    return '<a href="' + href + '" style="text-decoration:none;color:inherit;display:block;">' +
+                        '<div style="width:100%;aspect-ratio:3/4;border-radius:10px;overflow:hidden;background:#eee;box-shadow:0 2px 8px rgba(0,0,0,0.06);position:relative;">' +
+                        '<img src="' + escHtml(cover) + '" style="width:100%;height:100%;object-fit:cover;" onerror="this.src=\'/image/default_cover.png\'">' +
+                        '<span style="position:absolute;bottom:0;left:0;background:rgba(99,102,241,0.88);color:#fff;font-size:10px;padding:2px 6px;border-top-right-radius:6px;">' + escHtml(item.source || '') + '</span>' +
+                        '</div>' +
+                        '<div style="font-size:13px;font-weight:700;margin:6px 0 2px;white-space:nowrap;overflow:hidden;text-overflow:ellipsis;">' + escHtml(item.title) + '</div>' +
+                        '<div style="font-size:11px;color:#6366f1;white-space:nowrap;overflow:hidden;text-overflow:ellipsis;">读至: ' + escHtml(item.lastChapter || '第一章') + '</div>' +
+                        '</a>';
+                }).join('') +
+                '</div>';
+        } catch(e) {}
+    }
+
+    function clearReadingHistory() {
+        Swal.fire({
+            title: '清空阅读记录？',
+            text: '清空后将无法快速续读已有章节进度',
+            icon: 'warning',
+            showCancelButton: true,
+            confirmButtonText: '清空',
+            cancelButtonText: '取消',
+            confirmButtonColor: '#ef4444'
+        }).then(function(r) {
+            if (r.isConfirmed) {
+                localStorage.removeItem('reading_history');
+                renderUserShelf();
+                showToast('阅读记录已清空');
+            }
+        });
+    }
+
+    document.addEventListener('DOMContentLoaded', renderUserShelf);
+
+    const redeemInput = document.getElementById('redeemCodeInput');
+    if (redeemInput) {
+        redeemInput.addEventListener('keydown', function(e) {
+            if (e.key === 'Enter') { e.preventDefault(); redeemMemberCode(); }
+        });
+    }
+
+    // ============ 设备操作 ============
+    document.querySelectorAll('.rename-device-btn').forEach(btn => {
+        btn.addEventListener('click', function() {
+            const deviceId = this.dataset.deviceId;
+            const currentName = this.dataset.deviceName || '设备';
+            Swal.fire({
+                title: '重命名设备',
+                input: 'text',
+                inputLabel: '设备名称',
+                inputValue: currentName,
+                inputPlaceholder: '最多15字符',
+                showCancelButton: true,
+                confirmButtonText: '保存',
+                cancelButtonText: '取消',
+                preConfirm: (val) => {
+                    if (!val || val.trim().length === 0) { Swal.showValidationMessage('名称不能为空'); return false; }
+                    if (val.trim().length > 15) { Swal.showValidationMessage('名称不能超过15个字符'); return false; }
+                    return val.trim();
+                }
+            }).then(result => {
+                if (result.isConfirmed && result.value) {
+                    const name = result.value;
+                    fetch('user_center', {
+                        method: 'POST',
+                        headers: { 'Content-Type': 'application/x-www-form-urlencoded' },
+                        body: `action=rename_device&device_id=${encodeURIComponent(deviceId)}&name=${encodeURIComponent(name)}`
+                    })
+                    .then(r => r.json())
+                    .then(d => {
+                        if (d.success) {
+                            showToast('设备名称已更新');
+                            const item = document.querySelector(`.device-item[data-device-id="${deviceId}"]`);
+                            if (item) {
+                                const nameEl = item.querySelector('.device-name-text');
+                                if (nameEl) nameEl.textContent = name;
+                                const renameBtn = item.querySelector('.rename-device-btn');
+                                if (renameBtn) renameBtn.dataset.deviceName = name;
+                            }
+                        } else {
+                            showToast(d.message || '更新失败', 'error');
+                        }
+                    })
+                    .catch(() => showToast('网络错误', 'error'));
+                }
+            });
+        });
+    });
+
+    document.querySelectorAll('.offline-device-btn').forEach(btn => {
+        btn.addEventListener('click', function() {
+            const deviceId = this.dataset.deviceId;
+            Swal.fire({
+                title: '确认下线',
+                text: '确定强制下线该设备吗？',
+                icon: 'warning',
+                showCancelButton: true,
+                confirmButtonText: '确定下线',
+                cancelButtonText: '取消',
+                confirmButtonColor: '#ef4444'
+            }).then(result => {
+                if (result.isConfirmed) {
+                    fetch('user_center', {
+                        method: 'POST',
+                        headers: { 'Content-Type': 'application/x-www-form-urlencoded' },
+                        body: `action=offline_device&device_id=${encodeURIComponent(deviceId)}`
+                    })
+                    .then(r => r.json())
+                    .then(d => {
+                        if (d.success) {
+                            showToast('设备已强制下线(10分钟内无法重新上线！)');
+                            location.reload();
+                        } else {
+                            showToast(d.message || '操作失败', 'error');
+                        }
+                    })
+                    .catch(() => showToast('网络错误', 'error'));
+                }
+            });
+        });
+    });
+
+    document.querySelectorAll('.delete-device-btn').forEach(btn => {
+        btn.addEventListener('click', function() {
+            const deviceId = this.dataset.deviceId;
+            Swal.fire({
+                title: '确认删除',
+                text: '此操作不可恢复！',
+                icon: 'warning',
+                showCancelButton: true,
+                confirmButtonText: '确定删除',
+                cancelButtonText: '取消',
+                confirmButtonColor: '#ef4444'
+            }).then(result => {
+                if (result.isConfirmed) {
+                    fetch('user_center', {
+                        method: 'POST',
+                        headers: { 'Content-Type': 'application/x-www-form-urlencoded' },
+                        body: `action=delete_device&device_id=${encodeURIComponent(deviceId)}`
+                    })
+                    .then(r => r.json())
+                    .then(d => {
+                        if (d.success) {
+                            showToast('设备已删除');
+                            location.reload();
+                        } else {
+                            showToast(d.message || '操作失败', 'error');
+                        }
+                    })
+                    .catch(() => showToast('网络错误', 'error'));
+                }
+            });
+        });
+    });
+
+    // ============ 头像上传 ============
+    document.getElementById('avatar-input')?.addEventListener('change', function(e) {
+        const file = e.target.files[0];
+        if (!file) return;
+        const formData = new FormData();
+        formData.append('avatar', file);
+        formData.append('api_key', userApiKey);
+        const btn = document.querySelector('.profile-avatar');
+        btn.style.opacity = '0.6';
+        fetch('user_center', {
+            method: 'POST',
+            body: formData
+        })
+        .then(r => r.json())
+        .then(d => {
+            if (d.success) {
+                showToast('头像上传成功');
+                document.getElementById('avatar-image').src = d.avatar_url + '?t=' + Date.now();
+            } else {
+                showToast(d.message || '上传失败', 'error');
+            }
+        })
+        .catch(() => showToast('上传失败', 'error'))
+        .finally(() => { btn.style.opacity = '1'; e.target.value = ''; });
+    });
+
+    // ============ 个人信息表单 ============
+    document.getElementById('profileForm')?.addEventListener('submit', function(e) {
+        e.preventDefault();
+        const btn = this.querySelector('button[type="submit"]');
+        const orig = btn.innerHTML;
+        btn.disabled = true;
+        btn.innerHTML = '<span class="loading-spinner me-2"></span>保存中...';
+        const formData = new FormData(this);
+        fetch('user_center', {
+            method: 'POST',
+            body: formData
+        })
+        .then(r => r.json())
+        .then(d => {
+            if (d.success) { showToast('个人信息更新成功'); location.reload(); }
+            else { showToast(d.message || '更新失败', 'error'); }
+        })
+        .catch(() => showToast('网络错误', 'error'))
+        .finally(() => { btn.disabled = false; btn.innerHTML = orig; });
+    });
+
+    // ============ 密码表单 ============
+    document.getElementById('passwordForm')?.addEventListener('submit', function(e) {
+        e.preventDefault();
+        const btn = this.querySelector('button[type="submit"]');
+        const orig = btn.innerHTML;
+        btn.disabled = true;
+        btn.innerHTML = '<span class="loading-spinner me-2"></span>修改中...';
+        const formData = new FormData(this);
+        fetch('user_center', {
+            method: 'POST',
+            body: formData
+        })
+        .then(r => r.json())
+        .then(d => {
+            if (d.success) {
+                showToast('密码修改成功，请重新登录');
+                setTimeout(() => {
+                    TokenManager.removeToken();
+                    window.location.href = 'user_login?success=password_changed';
+                }, 1500);
+            } else {
+                showToast(d.message || '修改失败', 'error');
+            }
+        })
+        .catch(() => showToast('网络错误', 'error'))
+        .finally(() => { btn.disabled = false; btn.innerHTML = orig; });
+    });
+
+    // ============ 退出登录 ============
+    function userLogout() {
+        Swal.fire({
+            title: '确认退出？',
+            text: '您将退出当前登录状态',
+            icon: 'warning',
+            showCancelButton: true,
+            confirmButtonText: '确认退出',
+            cancelButtonText: '取消',
+            confirmButtonColor: '#ef4444'
+        }).then(result => {
+            if (result.isConfirmed) {
+                TokenManager.logout();
+            }
+        });
+    }
+</script>
+<script src="/js/bootstrap.bundle.min.js"></script>
+<script src="/js/sweetalert2.all.min.js"></script>
+</body>
+</html>

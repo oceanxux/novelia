@@ -1,0 +1,1064 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>{{TITLE}} - 自留地</title>
+    <script src="/js/vue.global.prod.js"></script>
+    <link rel="icon" href="data:image/x-icon;base64,">
+    <link href="/css/tailwind.min.css" rel="stylesheet">
+    <link rel="stylesheet" href="/css/animate.min.css"/>
+    <link rel="stylesheet" href="/css/all.min.css">
+    <style>
+        .book-desc {
+            display: -webkit-box;
+            -webkit-line-clamp: 3;
+            -webkit-box-orient: vertical;
+            overflow: hidden;
+        }
+        .book-desc.expanded { -webkit-line-clamp: unset; }
+        .tag {
+            display: inline-flex;
+            align-items: center;
+            padding: 0.25rem 0.5rem;
+            border-radius: 9999px;
+            font-size: 0.75rem;
+        }
+        .chapter-list-container {
+            max-height: 460px;
+            overflow-y: auto;
+        }
+        .book-cover { transition: transform 0.2s ease; }
+        .book-cover:hover { transform: translateY(-2px); }
+        .chapter-item { transition: background-color 0.15s ease; cursor: pointer; }
+        .chapter-item:hover { background-color: #f5f3ff; }
+        .volume-item {
+            background: #f0f4ff;
+            border-left: 4px solid #6366f1;
+            font-weight: 600;
+        }
+        .skeleton { background: #f0f0f0; border-radius: 4px; }
+        .chapter-badge {
+            font-size: 0.7rem;
+            padding: 0.1rem 0.4rem;
+            border-radius: 0.25rem;
+            margin-left: 0.5rem;
+        }
+        .vip-badge { background-color: #fef3c7; color: #d97706; }
+        .word-count-badge { background-color: #dbeafe; color: #1e40af; }
+        .cover-loading {
+            background: linear-gradient(90deg, #f0f0f0 25%, #e0e0e0 50%, #f0f0f0 75%);
+            background-size: 200% 100%;
+            animation: loading 1.5s infinite;
+        }
+        @keyframes loading {
+            0% { background-position: 200% 0; }
+            100% { background-position: -200% 0; }
+        }
+        .bottom-action-bar {
+            position: fixed;
+            bottom: 0;
+            left: 0;
+            right: 0;
+            background: rgba(255, 255, 255, 0.85);
+            backdrop-filter: blur(20px) saturate(180%);
+            -webkit-backdrop-filter: blur(20px) saturate(180%);
+            box-shadow: 0 -4px 20px rgba(0, 0, 0, 0.08);
+            padding: 12px 16px;
+            z-index: 30;
+            display: flex;
+            gap: 12px;
+            border-top: 1px solid rgba(255, 255, 255, 0.6);
+        }
+        .content-wrapper { padding-bottom: 80px; }
+        .bottom-action-button {
+            flex: 1;
+            padding: 12px 16px;
+            border-radius: 12px;
+            border: none;
+            font-size: 14px;
+            font-weight: 500;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            gap: 8px;
+            cursor: pointer;
+            transition: all 0.3s cubic-bezier(0.4, 0, 0.2, 1);
+            text-decoration: none;
+            position: relative;
+            overflow: hidden;
+        }
+        .bottom-action-button::before {
+            content: '';
+            position: absolute;
+            top: 0;
+            left: -100%;
+            width: 100%;
+            height: 100%;
+            background: linear-gradient(90deg, transparent, rgba(255, 255, 255, 0.3), transparent);
+            transition: left 0.6s;
+        }
+        .bottom-action-button:hover::before { left: 100%; }
+        .bottom-action-button:active { transform: scale(0.98); }
+        .read-button {
+            background: linear-gradient(135deg, rgba(99, 102, 241, 0.95) 0%, rgba(139, 92, 246, 0.95) 100%);
+            color: white;
+            box-shadow: 0 4px 15px rgba(99, 102, 241, 0.3);
+        }
+        .read-button:hover {
+            background: linear-gradient(135deg, rgba(99, 102, 241, 1) 0%, rgba(139, 92, 246, 1) 100%);
+            box-shadow: 0 6px 20px rgba(99, 102, 241, 0.4);
+            transform: translateY(-2px);
+        }
+        .bookshelf-button {
+            background: linear-gradient(135deg, rgba(34, 197, 94, 0.9) 0%, rgba(21, 128, 61, 0.9) 100%);
+            color: white;
+            box-shadow: 0 4px 15px rgba(34, 197, 94, 0.3);
+        }
+        .bookshelf-button:hover {
+            background: linear-gradient(135deg, rgba(34, 197, 94, 1) 0%, rgba(21, 128, 61, 1) 100%);
+            box-shadow: 0 6px 20px rgba(34, 197, 94, 0.4);
+            transform: translateY(-2px);
+        }
+        @media (min-width: 640px) {
+            .bottom-action-bar {
+                max-width: 640px;
+                left: 50%;
+                transform: translateX(-50%);
+                border-radius: 20px 20px 0 0;
+            }
+        }
+        /* ===== 阅读层 ===== */
+        .reader {
+            position: fixed;
+            inset: 0;
+            background: #f7f7f9;
+            z-index: 60;
+            display: flex;
+            flex-direction: column;
+            transition: background 0.3s, color 0.3s;
+        }
+        .reader.theme-default { background: #f8fafc; color: #1e293b; }
+        .reader.theme-sepia { background: #fbf0d9; color: #382c1e; }
+        .reader.theme-green { background: #dcebd8; color: #1f3322; }
+        .reader.theme-dark { background: #12141a; color: #cbd5e1; }
+        .reader.theme-dark .reader-head { background: #1a1d26; border-bottom: 1px solid rgba(255,255,255,0.08); box-shadow: none; }
+        .reader.theme-dark .r-title { color: #f1f5f9; }
+        .reader.theme-dark .reader-inner h2 { color: #f8fafc; }
+        .reader.theme-dark .reader-pager button { background: #1e222e; border-color: rgba(255,255,255,0.1); color: #cbd5e1; }
+        .reader.theme-sepia .reader-head { background: #f4e8cf; border-bottom: 1px solid rgba(0,0,0,0.05); }
+        .reader.theme-green .reader-head { background: #d3e4ce; border-bottom: 1px solid rgba(0,0,0,0.05); }
+
+        .reader-head {
+            display: flex;
+            align-items: center;
+            gap: 12px;
+            padding: 12px 18px;
+            background: #fff;
+            box-shadow: 0 1px 4px rgba(0, 0, 0, 0.06);
+            flex: none;
+            z-index: 10;
+        }
+        .reader-head .r-title {
+            flex: 1;
+            min-width: 0;
+            font-size: 15px;
+            font-weight: 700;
+            color: #1e293b;
+            overflow: hidden;
+            text-overflow: ellipsis;
+            white-space: nowrap;
+        }
+        .reader-head button {
+            border: none;
+            background: transparent;
+            color: #6366f1;
+            font-size: 15px;
+            cursor: pointer;
+            padding: 6px 8px;
+            border-radius: 8px;
+            transition: all 0.2s;
+        }
+        .reader-head button:hover {
+            background: rgba(99, 102, 241, 0.1);
+        }
+
+        /* 阅读设置浮层面板 */
+        .reader-settings-panel {
+            background: rgba(255, 255, 255, 0.95);
+            backdrop-filter: blur(16px);
+            padding: 14px 18px;
+            border-bottom: 1px solid #e2e8f0;
+            display: flex;
+            flex-wrap: wrap;
+            gap: 16px;
+            align-items: center;
+            justify-content: space-between;
+            font-size: 13px;
+        }
+        .reader.theme-dark .reader-settings-panel {
+            background: rgba(26, 29, 38, 0.95);
+            border-bottom-color: rgba(255,255,255,0.08);
+            color: #cbd5e1;
+        }
+        .theme-select-group {
+            display: flex;
+            gap: 10px;
+            align-items: center;
+        }
+        .theme-dot {
+            width: 24px;
+            height: 24px;
+            border-radius: 50%;
+            cursor: pointer;
+            border: 2px solid transparent;
+            transition: transform 0.2s;
+        }
+        .theme-dot:hover { transform: scale(1.15); }
+        .theme-dot.active { border-color: #6366f1; transform: scale(1.1); box-shadow: 0 0 8px rgba(99,102,241,0.4); }
+        .theme-dot.dot-white { background: #f8fafc; border: 1px solid #cbd5e1; }
+        .theme-dot.dot-sepia { background: #fbf0d9; border: 1px solid #d4c2a5; }
+        .theme-dot.dot-green { background: #dcebd8; border: 1px solid #bcd1b7; }
+        .theme-dot.dot-dark { background: #12141a; border: 1px solid #334155; }
+
+        .font-size-control {
+            display: flex;
+            align-items: center;
+            gap: 8px;
+        }
+        .font-btn {
+            width: 28px;
+            height: 28px;
+            border-radius: 6px;
+            border: 1px solid #cbd5e1;
+            background: transparent;
+            display: inline-flex;
+            align-items: center;
+            justify-content: center;
+            cursor: pointer;
+            font-weight: 700;
+        }
+
+        .reader-body { flex: 1; overflow-y: auto; padding: 24px 18px 50px; scroll-behavior: smooth; }
+        .reader-inner { max-width: 760px; margin: 0 auto; }
+        .reader-inner h2 { font-size: 22px; font-weight: 800; margin: 8px 0 24px; letter-spacing: -0.3px; }
+        .reader-content { line-height: 2.15; word-break: break-word; font-family: -apple-system, BlinkMacSystemFont, "PingFang SC", "Segoe UI", sans-serif; }
+        .reader-content p { margin: 0 0 18px; text-indent: 2em; }
+        .reader-pager { display: flex; justify-content: space-between; gap: 14px; margin-top: 36px; }
+        .reader-pager button {
+            flex: 1;
+            padding: 13px;
+            border-radius: 12px;
+            border: 1px solid #e2e8f0;
+            background: #fff;
+            font-size: 14px;
+            font-weight: 600;
+            cursor: pointer;
+            color: #334155;
+            transition: all 0.2s;
+        }
+        .reader-pager button:hover:not(:disabled) {
+            border-color: #6366f1;
+            color: #6366f1;
+        }
+        .reader-pager button:disabled { opacity: 0.4; cursor: not-allowed; }
+        .reader-empty { text-align: center; color: #9ca3af; padding: 80px 0; }
+        .jj-login-btn { font-size: 16px !important; }
+        .jj-login-btn.on { color: #16a34a !important; }
+        .para-hint { text-align: center; color: #9ca3af; font-size: 12px; margin: 24px 0 0; }
+        /* 段评锚点: 每个段落右侧的小气泡 */
+        .reader-content p { position: relative; padding-right: 34px; }
+        .para-bubble {
+            position: absolute; right: 0; top: 4px;
+            display: inline-flex; align-items: center; gap: 2px;
+            font-size: 11px; line-height: 1; color: #6366f1;
+            background: #eef2ff; border: 1px solid #c7d2fe;
+            border-radius: 10px; padding: 3px 6px; cursor: pointer;
+            user-select: none; white-space: nowrap; text-indent: 0;
+        }
+        .para-bubble:hover { background: #e0e7ff; }
+        .para-bubble.zero { color: #9ca3af; background: #f3f4f6; border-color: #e5e7eb; }
+        .para-panel-mask {
+            position: fixed; inset: 0; background: rgba(0,0,0,.45);
+            display: flex; align-items: flex-end; justify-content: center; z-index: 60;
+        }
+        .para-panel {
+            background: #fff; width: 100%; max-width: 720px;
+            border-radius: 16px 16px 0 0; max-height: 78vh; display: flex; flex-direction: column;
+            animation: slideUp .22s ease;
+        }
+        @keyframes slideUp { from { transform: translateY(30px); opacity: .6; } to { transform: none; opacity: 1; } }
+        .para-panel-head {
+            display: flex; align-items: center; justify-content: space-between;
+            padding: 14px 16px; border-bottom: 1px solid #f0f0f0; flex: none;
+        }
+        .para-panel-title { font-weight: 700; color: #333; font-size: 15px; }
+        .para-panel-head button { border: none; background: none; color: #9ca3af; font-size: 16px; cursor: pointer; }
+        .para-quote {
+            margin: 12px 16px 0; padding: 10px 12px; background: #f8fafc;
+            border-left: 3px solid #c7d2fe; border-radius: 6px;
+            font-size: 13px; color: #64748b; line-height: 1.6;
+            max-height: 72px; overflow: hidden; flex: none;
+        }
+        .para-panel-body { padding: 12px 16px 20px; overflow-y: auto; }
+        .para-loading, .para-empty { text-align: center; color: #9ca3af; padding: 28px 0; font-size: 13px; }
+        .para-comment { padding: 12px 0; border-bottom: 1px solid #f5f5f5; }
+        .para-comment:last-child { border-bottom: none; }
+        .para-comment-head { display: flex; align-items: center; gap: 6px; margin-bottom: 4px; }
+        .para-comment-author { font-size: 13px; font-weight: 600; color: #4f46e5; }
+        .para-author-badge { font-size: 10px; color: #fff; background: #f59e0b; border-radius: 4px; padding: 1px 5px; }
+        .para-comment-ip { font-size: 11px; color: #b0b7c3; margin-left: auto; }
+        .para-comment-body { font-size: 14px; color: #374151; line-height: 1.7; word-break: break-word; }
+        .para-comment-foot { display: flex; gap: 14px; margin-top: 6px; font-size: 11px; color: #b0b7c3; }
+        .para-reply-toggle { color: #6366f1; cursor: pointer; }
+        .para-replies { margin-top: 8px; padding-left: 10px; border-left: 2px solid #eef2ff; }
+        .para-reply { padding: 6px 0; }
+        .para-reply-author { font-size: 12px; font-weight: 600; color: #6b7280; }
+        .para-reply-ip { font-size: 10px; color: #c0c6d0; margin-left: 6px; }
+        .para-reply-body { font-size: 13px; color: #4b5563; line-height: 1.6; margin-top: 2px; }
+        .jj-login-panel { max-width: 400px; border-radius: 16px; margin: auto; }
+        .para-panel-mask:has(.jj-login-panel) { align-items: center; }
+        .jj-login-body { padding: 20px; text-align: center; }
+        .jj-qr { width: 220px; height: 220px; border: 1px solid #eee; border-radius: 12px; }
+        .jj-notice { font-size: 12px; color: #6b7280; margin: 12px 0 4px; line-height: 1.6; }
+        .jj-status { font-size: 12px; color: #f59e0b; min-height: 16px; }
+        .jj-btn { margin-top: 12px; padding: 9px 18px; border-radius: 8px; border: 1px solid #d1d5db; background: #fff; font-size: 13px; cursor: pointer; color: #374151; }
+        .jj-btn.ghost:hover { background: #f9fafb; }
+        .jj-logged i { font-size: 40px; color: #16a34a; }
+        .jj-logged p { margin: 10px 0; color: #374151; font-size: 14px; }
+    </style>
+</head>
+<body class="bg-gray-50 min-h-screen">
+    <div id="app" class="pb-8">
+        <header class="sticky top-0 bg-white shadow-sm py-4 px-4 z-20">
+            <div class="flex items-center justify-between">
+                <button @click="goBack" class="text-purple-500 hover:text-purple-700">
+                    <svg class="w-6 h-6" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                        <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M15 19l-7-7 7-7"/>
+                    </svg>
+                </button>
+                <h1 class="text-lg font-bold text-gray-800 truncate max-w-[60%]">书籍详情</h1>
+                <div class="w-8"></div>
+            </div>
+        </header>
+
+        <div v-if="showTip" class="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center p-4 z-50">
+            <div class="bg-white rounded-xl shadow-xl max-w-sm w-full p-6">
+                <div class="flex items-center justify-between mb-4">
+                    <h3 class="text-lg font-bold text-gray-800 flex items-center">
+                        <i class="fas fa-info-circle text-orange-500 mr-2"></i>
+                        提示
+                    </h3>
+                    <button @click="showTip = false" class="text-gray-400 hover:text-gray-600">
+                        <i class="fas fa-times"></i>
+                    </button>
+                </div>
+                <div class="space-y-3">
+                    <p class="text-gray-600 text-center">{{ tipMessage }}</p>
+                    <button @click="showTip = false"
+                        class="w-full px-4 py-2 bg-orange-500 text-white rounded-lg hover:bg-orange-600">
+                        知道了
+                    </button>
+                </div>
+            </div>
+        </div>
+
+        <div v-if="loading" class="p-8 text-center text-gray-500">
+            <div class="animate-spin inline-block w-8 h-8 border-4 border-purple-500 border-t-transparent rounded-full"></div>
+            <p class="mt-2">正在加载书籍信息...</p>
+        </div>
+
+        <template v-if="!loading && bookData">
+            <div class="content-wrapper">
+                <div class="px-4 space-y-4 mt-4">
+                    <div class="bg-white rounded-lg shadow-sm p-4">
+                        <div class="flex gap-4">
+                            <div class="relative">
+                                <img :src="getCoverUrl(bookData.cover)" @error="handleCoverError" @load="onCoverLoad"
+                                    class="w-20 h-28 rounded-lg object-cover border flex-none book-cover"
+                                    :class="{ 'opacity-0': coverLoading }" loading="lazy" alt="书籍封面">
+                                <div v-if="coverLoading"
+                                    class="absolute inset-0 w-20 h-28 rounded-lg cover-loading flex items-center justify-center">
+                                    <i class="fas fa-image text-gray-400 text-xl"></i>
+                                </div>
+                            </div>
+                            <div class="flex-1 min-w-0">
+                                <h2 class="text-xl font-bold text-gray-800 truncate">{{ bookData.title }}</h2>
+                                <p class="text-sm text-gray-500 mt-1 truncate">
+                                    <i class="fas fa-user-pen text-purple-400 mr-1"></i>
+                                    {{ bookData.author || '未知' }}
+                                </p>
+                                <div class="flex flex-wrap gap-2 mt-2">
+                                    <span class="tag bg-purple-100 text-purple-700">
+                                        <i class="fas fa-bookmark mr-1"></i>
+                                        {{ bookData.source || '未知来源' }}
+                                    </span>
+                                    <span v-if="bookData.wordCount" class="tag bg-blue-100 text-blue-700">
+                                        <i class="fas fa-font mr-1"></i>
+                                        {{ formatWordCount(bookData.wordCount) }}
+                                    </span>
+                                </div>
+                            </div>
+                        </div>
+                    </div>
+
+                    <div class="bg-white rounded-lg shadow-sm p-4 space-y-4">
+                        <div>
+                            <h3 class="font-bold text-gray-800 mb-2 flex items-center">
+                                <i class="fas fa-align-left text-purple-500 mr-2"></i>
+                                作品简介
+                            </h3>
+                            <p class="text-gray-600 text-sm leading-relaxed book-desc"
+                                :class="{ 'expanded': descExpanded }" v-html="formatDesc(bookData.desc)"></p>
+                            <button @click="toggleDesc"
+                                class="text-purple-500 text-sm mt-2 hover:text-purple-700 flex items-center">
+                                <i :class="descExpanded ? 'fas fa-angle-up' : 'fas fa-angle-down'" class="mr-1"></i>
+                                {{ descExpanded ? '收起简介' : '展开全部' }}
+                            </button>
+                        </div>
+
+                        <div class="grid grid-cols-2 gap-2 text-sm">
+                            <div class="bg-gray-50 p-3 rounded-lg">
+                                <p class="text-gray-500 flex items-center">
+                                    <i class="fas fa-list-ol text-purple-400 mr-2"></i>
+                                    总章节数
+                                </p>
+                                <p v-if="!chaptersLoading && processedChapters.length > 0"
+                                    class="font-medium text-gray-800 mt-1">{{ totalChapters }}章</p>
+                                <div v-else class="mt-1">
+                                    <div class="skeleton h-4 w-16"></div>
+                                </div>
+                            </div>
+                            <div class="bg-gray-50 p-3 rounded-lg">
+                                <p class="text-gray-500 flex items-center">
+                                    <i class="fas fa-clock text-purple-400 mr-2"></i>
+                                    最新章节
+                                </p>
+                                <p v-if="!chaptersLoading && processedChapters.length > 0"
+                                    class="font-medium text-gray-800 mt-1 truncate">{{ lastChapterTitle }}</p>
+                                <div v-else class="mt-1">
+                                    <div class="skeleton h-4 w-32"></div>
+                                </div>
+                            </div>
+                        </div>
+
+                        <div>
+                            <div class="flex items-center justify-between mb-2">
+                                <h3 class="font-bold text-gray-800 flex items-center">
+                                    <i class="fas fa-list-ul text-purple-500 mr-2"></i>
+                                    章节目录
+                                </h3>
+                                <div class="text-xs text-gray-500">
+                                    <span class="bg-purple-100 text-purple-700 px-2 py-1 rounded mr-2">
+                                        卷: {{ volumeCount }}
+                                    </span>
+                                    <span class="bg-blue-100 text-blue-700 px-2 py-1 rounded">
+                                        章: {{ totalChapters }}
+                                    </span>
+                                </div>
+                            </div>
+                            <div v-if="chaptersLoading" class="p-4 text-center">
+                                <div class="animate-spin inline-block w-8 h-8 border-4 border-purple-500 border-t-transparent rounded-full"></div>
+                                <p class="text-gray-500 mt-2">正在加载章节列表...</p>
+                            </div>
+                            <div v-else class="chapter-list-container border rounded-lg bg-white">
+                                <div v-for="(chapter, index) in processedChapters" :key="index"
+                                    :class="['p-3 border-b chapter-item', chapter.isVolume ? 'volume-item cursor-default' : '']"
+                                    @click="!chapter.isVolume && handleChapterClick(chapter)">
+                                    <div class="flex items-center justify-between">
+                                        <div class="flex items-center gap-2 flex-1 min-w-0">
+                                            <span v-if="chapter.isVolume" class="text-purple-600 text-sm flex-none">
+                                                <i class="fas fa-folder mr-2"></i>
+                                            </span>
+                                            <span class="text-gray-800 text-sm flex-1"
+                                                :class="{ 'font-semibold text-purple-700': chapter.isVolume }">
+                                                {{ chapter.title }}
+                                            </span>
+                                        </div>
+                                        <div v-if="!chapter.isVolume" class="flex items-center gap-1 flex-none ml-2">
+                                            <span v-if="chapter.isVip" class="chapter-badge vip-badge">VIP</span>
+                                            <i class="fas fa-chevron-right text-gray-300 text-xs"></i>
+                                        </div>
+                                    </div>
+                                </div>
+                                <div v-if="processedChapters.length === 0" class="p-4 text-gray-400 text-center">
+                                    <i class="fas fa-inbox mr-2"></i>
+                                    暂无章节信息
+                                </div>
+                            </div>
+                        </div>
+                    </div>
+                </div>
+            </div>
+
+            <div class="bottom-action-bar">
+                <button @click="startRead" class="bottom-action-button read-button">
+                    <i class="fas fa-book-open"></i>
+                    {{ totalChapters ? '开始阅读' : '暂无正文' }}
+                </button>
+                <a :href="getLegadoBookshelfUrl" class="bottom-action-button bookshelf-button">
+                    <i class="fas fa-bookmark"></i>
+                    加入书架
+                </a>
+            </div>
+        </template>
+
+        <div v-if="error" class="p-4 bg-red-50 text-red-700 mx-4 my-2 rounded-lg">
+            <i class="fas fa-exclamation-circle mr-2"></i>
+            {{ error }}
+        </div>
+
+        <!-- ===== 阅读层 ===== -->
+        <div v-if="reading" class="reader" :class="'theme-' + readerTheme">
+            <div class="reader-head">
+                <button @click="closeRead" title="返回目录"><i class="fas fa-arrow-left"></i></button>
+                <div class="r-title">{{ currentChapter ? currentChapter.title : '正文' }}</div>
+                <button @click="showReaderSettings = !showReaderSettings" title="阅读设置"><i class="fas fa-font"></i></button>
+                <button v-if="isJj" @click="openJjLogin" :title="jjLoggedIn ? '晋江已登录' : '晋江未登录'"
+                    class="jj-login-btn" :class="{ on: jjLoggedIn }">
+                    <i class="fas" :class="jjLoggedIn ? 'fa-circle-check' : 'fa-right-to-bracket'"></i>
+                </button>
+                <button v-if="isFanqie" @click="openFqLogin" :title="fqLoggedIn ? '番茄已登录' : '番茄未登录'"
+                    class="jj-login-btn" :class="{ on: fqLoggedIn }">
+                    <i class="fas" :class="fqLoggedIn ? 'fa-circle-check' : 'fa-right-to-bracket'"></i>
+                </button>
+                <button @click="closeRead" title="关闭"><i class="fas fa-times"></i></button>
+            </div>
+
+            <!-- 阅读设置面板 -->
+            <div v-if="showReaderSettings" class="reader-settings-panel">
+                <div class="theme-select-group">
+                    <span class="text-xs text-gray-500 mr-1">阅读背景:</span>
+                    <div class="theme-dot dot-white" :class="{ active: readerTheme === 'default' }" @click="setReaderTheme('default')" title="经典白"></div>
+                    <div class="theme-dot dot-sepia" :class="{ active: readerTheme === 'sepia' }" @click="setReaderTheme('sepia')" title="护眼米黄"></div>
+                    <div class="theme-dot dot-green" :class="{ active: readerTheme === 'green' }" @click="setReaderTheme('green')" title="温润豆沙绿"></div>
+                    <div class="theme-dot dot-dark" :class="{ active: readerTheme === 'dark' }" @click="setReaderTheme('dark')" title="夜间深色"></div>
+                </div>
+
+                <div class="font-size-control">
+                    <span class="text-xs text-gray-500 mr-1">字号:</span>
+                    <button class="font-btn" @click="changeFontSize(-1)">A-</button>
+                    <span class="font-semibold text-xs px-1">{{ fontSize }}px</span>
+                    <button class="font-btn" @click="changeFontSize(1)">A+</button>
+                </div>
+            </div>
+
+            <div class="reader-body" ref="readerBody">
+                <div class="reader-inner">
+                    <h2>{{ currentChapter ? currentChapter.title : '' }}</h2>
+                    <div v-if="contentLoading" class="reader-empty">
+                        <div class="animate-spin inline-block w-8 h-8 border-4 border-purple-500 border-t-transparent rounded-full"></div>
+                        <p class="mt-2">正在加载正文...</p>
+                    </div>
+                    <div v-else-if="contentError" class="reader-empty">
+                        <i class="fas fa-triangle-exclamation text-2xl mb-2"></i>
+                        <p>{{ contentError }}</p>
+                    </div>
+                    <div v-else class="reader-content" ref="readerContent" :style="{ fontSize: fontSize + 'px' }" v-html="content"></div>
+                    <div v-if="isJj && !contentLoading && content" class="para-hint">
+                        <i class="fas fa-comment-dots"></i> 点击段落右侧气泡查看段评
+                    </div>
+                    <div class="reader-pager">
+                        <button :disabled="current <= 0" @click="loadChapter(current - 1)">
+                            <i class="fas fa-chevron-left mr-1"></i> 上一章
+                        </button>
+                        <button :disabled="current >= readChapters.length - 1" @click="loadChapter(current + 1)">
+                            下一章 <i class="fas fa-chevron-right ml-1"></i>
+                        </button>
+                    </div>
+                </div>
+            </div>
+        </div>
+
+    <!-- ===== 段评面板 ===== -->
+    <div v-if="paraPanel.open" class="para-panel-mask" @click.self="closeParaPanel">
+        <div class="para-panel">
+            <div class="para-panel-head">
+                <span class="para-panel-title"><i class="fas fa-comment-dots mr-1"></i> 第 {{ paraPanel.pid }} 段 · 段评</span>
+                <button @click="closeParaPanel"><i class="fas fa-times"></i></button>
+            </div>
+            <div class="para-quote" v-if="paraPanel.quote">{{ paraPanel.quote }}</div>
+            <div class="para-panel-body">
+                <div v-if="paraPanel.loading" class="para-loading">加载中...</div>
+                <template v-else>
+                    <div v-if="paraPanel.comments.length === 0" class="para-empty">这一段还没有段评</div>
+                    <div v-for="c in paraPanel.comments" :key="c.commentId" class="para-comment">
+                        <div class="para-comment-head">
+                            <span class="para-comment-author">{{ c.author }}</span>
+                            <span v-if="c.isAuthor" class="para-author-badge">作者</span>
+                            <span class="para-comment-ip" v-if="c.ip">{{ c.ip }}</span>
+                        </div>
+                        <div class="para-comment-body">{{ c.body }}</div>
+                        <div class="para-comment-foot">
+                            <span>{{ c.dateText }}</span>
+                            <span v-if="c.replyTotal > 0" class="para-reply-toggle" @click="toggleReplies(c)">
+                                <i class="fas fa-comment"></i> {{ c.replyTotal }} 条回复
+                            </span>
+                        </div>
+                        <div v-if="c._open" class="para-replies">
+                            <div v-if="c._loading" class="para-loading">加载回复中...</div>
+                            <div v-for="r in c._replies" :key="r.replyId" class="para-reply">
+                                <span class="para-reply-author">{{ r.author }}</span>
+                                <span class="para-reply-ip" v-if="r.ip">{{ r.ip }}</span>
+                                <div class="para-reply-body">{{ r.body }}</div>
+                            </div>
+                        </div>
+                    </div>
+                </template>
+            </div>
+        </div>
+    </div>
+
+    <!-- ===== 晋江登录弹窗 ===== -->
+    <div v-if="jjLogin.open" class="para-panel-mask" @click.self="closeJjLogin">
+        <div class="para-panel jj-login-panel">
+            <div class="para-panel-head">
+                <span class="para-panel-title"><i class="fas fa-mobile-screen mr-1"></i> 晋江扫码登录</span>
+                <button @click="closeJjLogin"><i class="fas fa-times"></i></button>
+            </div>
+            <div class="jj-login-body">
+                <div v-if="jjLoggedIn" class="jj-logged">
+                    <i class="fas fa-circle-check"></i>
+                    <p>已登录晋江账号</p>
+                    <button class="jj-btn ghost" @click="jjLogout">退出登录</button>
+                </div>
+                <template v-else>
+                    <div v-if="jjLogin.loading" class="para-loading">正在获取二维码...</div>
+                    <template v-else>
+                        <img v-if="jjLogin.qrImage" :src="jjLogin.qrImage" class="jj-qr" alt="晋江登录二维码">
+                        <p class="jj-notice">{{ jjLogin.notice || '请用已登录晋江的手机 App 扫码' }}</p>
+                        <p class="jj-status">{{ jjLogin.message }}</p>
+                        <button class="jj-btn ghost" @click="startJjLogin">刷新二维码</button>
+                    </template>
+                </template>
+            </div>
+        </div>
+    </div>
+
+    <!-- ===== 番茄登录弹窗 ===== -->
+    <div v-if="fqLogin.open" class="para-panel-mask" @click.self="closeFqLogin">
+        <div class="para-panel jj-login-panel">
+            <div class="para-panel-head">
+                <span class="para-panel-title"><i class="fas fa-mobile-screen mr-1"></i> 番茄扫码登录</span>
+                <button @click="closeFqLogin"><i class="fas fa-times"></i></button>
+            </div>
+            <div class="jj-login-body">
+                <div v-if="fqLoggedIn" class="jj-logged">
+                    <i class="fas fa-circle-check"></i>
+                    <p>已登录番茄账号{{ fqUser && fqUser.nickname ? '：' + fqUser.nickname : '' }}</p>
+                    <button class="jj-btn ghost" @click="fqLogout">退出登录</button>
+                </div>
+                <template v-else>
+                    <div v-if="fqLogin.loading" class="para-loading">正在获取二维码...</div>
+                    <template v-else>
+                        <img v-if="fqLogin.qrImage" :src="fqLogin.qrImage" class="jj-qr" alt="番茄登录二维码">
+                        <p class="jj-notice">{{ fqLogin.notice || '请用已登录番茄的手机 App 扫码' }}</p>
+                        <p class="jj-status">{{ fqLogin.message }}</p>
+                        <button class="jj-btn ghost" @click="startFqLogin">刷新二维码</button>
+                    </template>
+                </template>
+            </div>
+        </div>
+    </div>
+    </div><!-- /#app -->
+
+    <script>
+        window.__BOOK__ = {{BOOK_JSON}};
+    </script>
+    <script>
+        const { createApp } = Vue;
+        const BOOK = window.__BOOK__ || {};
+
+        createApp({
+            data() {
+                return {
+                    bookData: BOOK.info || null,
+                    chapters: BOOK.chapters || [],
+                    loading: false,
+                    chaptersLoading: false,
+                    error: BOOK.error || null,
+                    descExpanded: false,
+                    showTip: false,
+                    tipMessage: '',
+                    coverLoading: true,
+                    coverRetryCount: 0,
+                    maxCoverRetries: 2,
+                    reading: false,
+                    current: -1,
+                    content: '',
+                    contentLoading: false,
+                    contentError: '',
+                    jjLoggedIn: false,
+                    fqLoggedIn: false,
+                    fqUser: null,
+                    paraCounts: {},
+                    paraPanel: { open: false, pid: '', quote: '', loading: false, comments: [] },
+                    jjLogin: { open: false, loading: false, qrImage: '', notice: '', message: '', timer: null, session: null },
+                    fqLogin: { open: false, loading: false, qrImage: '', notice: '', message: '', timer: null, session: null },
+                    readerTheme: localStorage.getItem('reader_theme') || 'default',
+                    fontSize: parseInt(localStorage.getItem('reader_font_size'), 10) || 17,
+                    showReaderSettings: false
+                };
+            },
+            computed: {
+                isJj() { return (this.bookData && this.bookData.source) === '晋江'; },
+                isFanqie() { return (this.bookData && this.bookData.source) === '番茄小说'; },
+                processedChapters() {
+                    return (this.chapters || []).map((c) => ({
+                        title: c.title,
+                        url: c.url,
+                        cid: c.cid,
+                        chapterid: c.chapterid || '',
+                        isVolume: !!c.isVolume,
+                        isVip: !!c.isVip,
+                    }));
+                },
+                readChapters() {
+                    return this.processedChapters.filter((c) => !c.isVolume);
+                },
+                volumeCount() {
+                    return this.processedChapters.filter((c) => c.isVolume).length;
+                },
+                totalChapters() {
+                    return this.readChapters.length;
+                },
+                lastChapterTitle() {
+                    const list = this.readChapters;
+                    return list.length ? list[list.length - 1].title : '未知';
+                },
+                currentChapter() {
+                    return this.current >= 0 ? this.readChapters[this.current] : null;
+                },
+                getLegadoBookshelfUrl() {
+                    const here = window.location.origin + window.location.pathname + window.location.search;
+                    const name = encodeURIComponent(this.bookData?.title || '');
+                    const source = encodeURIComponent(this.bookData?.source || '');
+                    return `legado://import/addToBookshelf?src=${encodeURIComponent(here)}&name=${name}&source=${source}`;
+                }
+            },
+            methods: {
+                goBack() { window.history.back(); },
+                toggleDesc() { this.descExpanded = !this.descExpanded; },
+                formatWordCount(count) {
+                    if (!count) return '字数未知';
+                    if (count > 1000000) return `${(count / 1000000).toFixed(1)}百万字`;
+                    if (count > 10000) return `${(count / 10000).toFixed(1)}万字`;
+                    return `${count}字`;
+                },
+                formatDesc(desc) {
+                    return (desc || '暂无简介').replace(/\n/g, '<br>');
+                },
+                getCoverUrl(coverUrl) {
+                    if (!coverUrl) return this.getDefaultCover();
+                    return coverUrl;
+                },
+                getDefaultCover() { return `${window.location.origin}/image/default_cover.png`; },
+                isDefaultCover(url) { return url.includes('default_cover.png'); },
+                isProxyUrl(url) { return url.includes('/proxy_image'); },
+                getProxyUrl(originalUrl) { return `/proxy_image?url=${encodeURIComponent(originalUrl)}`; },
+                onCoverLoad() { this.coverLoading = false; this.coverRetryCount = 0; },
+                handleCoverError(event) {
+                    const imgElement = event.target;
+                    if (this.isDefaultCover(imgElement.src)) { this.coverLoading = false; return; }
+                    this.coverRetryCount++;
+                    if (this.coverRetryCount > this.maxCoverRetries) {
+                        imgElement.src = this.getDefaultCover();
+                        this.coverLoading = false;
+                        return;
+                    }
+                    if (!this.isProxyUrl(imgElement.src)) {
+                        imgElement.src = this.getProxyUrl(imgElement.src);
+                    } else {
+                        imgElement.src = this.getDefaultCover();
+                        this.coverLoading = false;
+                    }
+                },
+                startRead() {
+                    if (!this.readChapters.length) {
+                        this.tipMessage = '暂无可用章节';
+                        this.showTip = true;
+                        return;
+                    }
+                    this.reading = true;
+                    this.loadChapter(0);
+                },
+                closeRead() { this.reading = false; },
+                handleChapterClick(chapter) {
+                    const idx = this.readChapters.indexOf(chapter);
+                    if (idx < 0) return;
+                    this.reading = true;
+                    this.loadChapter(idx);
+                },
+                setReaderTheme(theme) {
+                    this.readerTheme = theme;
+                    localStorage.setItem('reader_theme', theme);
+                },
+                changeFontSize(delta) {
+                    const next = Math.max(12, Math.min(30, this.fontSize + delta));
+                    this.fontSize = next;
+                    localStorage.setItem('reader_font_size', next);
+                },
+                saveReadingHistory(chapter) {
+                    try {
+                        const history = JSON.parse(localStorage.getItem('reading_history') || '[]');
+                        const cur = {
+                            title: this.bookData?.title || '未知书籍',
+                            author: this.bookData?.author || '',
+                            cover: this.bookData?.cover || '',
+                            source: this.bookData?.source || '',
+                            url: BOOK.book_url || '',
+                            bookid: BOOK.bookid || '',
+                            lastChapter: chapter?.title || '',
+                            lastChapterIndex: this.current,
+                            time: Date.now()
+                        };
+                        const filtered = history.filter((h) => !(h.title === cur.title && h.source === cur.source));
+                        filtered.unshift(cur);
+                        localStorage.setItem('reading_history', JSON.stringify(filtered.slice(0, 30)));
+                    } catch (e) {}
+                },
+                loadChapter(i) {
+                    if (i < 0 || i >= this.readChapters.length) return;
+                    this.current = i;
+                    const ch = this.readChapters[i];
+                    this.saveReadingHistory(ch);
+                    this.contentLoading = true;
+                    this.contentError = '';
+                    this.content = '';
+                    this.paraCounts = {};
+                    this.closeParaPanel();
+                    const body = this.$refs.readerBody;
+                    if (body) body.scrollTop = 0;
+                    const token = localStorage.getItem('user_token') || '';
+                    const headers = { 'Content-Type': 'application/json' };
+                    if (token) headers['X-Novel-Token'] = token;
+                    fetch('/api/chapter', {
+                        method: 'POST',
+                        headers,
+                        body: JSON.stringify({
+                            source: BOOK.source, url: BOOK.book_url,
+                            bookid: BOOK.bookid, cid: ch.cid,
+                            chapterid: ch.chapterid || ''
+                        })
+                    })
+                        .then((r) => r.json())
+                        .then((d) => {
+                            if (d.success && d.content) {
+                                this.content = this.renderContent(d.content);
+                                if (d.notice) this.contentError = d.notice;
+                            } else if (d.success && d.notice) {
+                                this.contentError = d.notice;
+                            } else {
+                                this.contentError = d.message || '正文加载失败';
+                            }
+                        })
+                        .catch(() => { this.contentError = '网络错误，请稍后重试'; })
+                        .finally(() => {
+                            this.contentLoading = false;
+                            // 正文容器挂载后再注入段评锚点
+                            this.$nextTick(() => this.afterContentRendered(ch));
+                        });
+                },
+                // 纯文本正文 -> HTML: 空行分段, 每段一个 <p>
+                renderContent(text) {
+                    return String(text || '')
+                        .split(/\n{2,}/)
+                        .map((p) => p.trim())
+                        .filter(Boolean)
+                        .map((p) => `<p>${p.replace(/&/g, '&amp;').replace(/</g, '&lt;').replace(/>/g, '&gt;')}</p>`)
+                        .join('');
+                },
+                // 正文渲染后: 为晋江章节挂段评气泡
+                afterContentRendered(ch) {
+                    if (!this.isJj) return;
+                    const root = this.$refs.readerContent;
+                    if (!root) return;
+                    const ps = root.querySelectorAll('p');
+                    const chapterid = ch.chapterid || '';
+                    if (!chapterid || !ps.length) return;
+                    const novelid = BOOK.bookid || '';
+                    fetch(`/api/jj/paragraph_counts?novelid=${novelid}&chapterid=${chapterid}`)
+                        .then((r) => r.json())
+                        .then((d) => {
+                            this.paraCounts = (d && d.counts) || {};
+                            ps.forEach((p, idx) => {
+                                const pid = String(idx + 1);
+                                const count = this.paraCounts[pid] || 0;
+                                // 先取纯文本, 否则气泡注入后 textContent 会把气泡数字一并带入引用
+                                const plain = p.textContent;
+                                const b = document.createElement('span');
+                                b.className = 'para-bubble' + (count ? '' : ' zero');
+                                b.dataset.pid = pid;
+                                b.innerHTML = count
+                                    ? `<i class="fas fa-comment"></i> ${count}`
+                                    : '<i class="far fa-comment"></i>';
+                                b.onclick = () => this.openParaPanel(pid, plain);
+                                p.appendChild(b);
+                            });
+                        })
+                        .catch(() => {});
+                },
+                openParaPanel(pid, quote) {
+                    this.paraPanel = {
+                        open: true, pid,
+                        quote: String(quote || '').slice(0, 120),
+                        loading: true, comments: [],
+                    };
+                    const ch = this.readChapters[this.current];
+                    const chapterid = (ch && ch.chapterid) || '';
+                    const novelid = BOOK.bookid || '';
+                    fetch(`/api/jj/comments?novelid=${novelid}&chapterid=${chapterid}&pid=${pid}&limit=20`)
+                        .then((r) => r.json())
+                        .then((d) => {
+                            this.paraPanel.comments = (d && d.list) || [];
+                        })
+                        .catch(() => {})
+                        .finally(() => { this.paraPanel.loading = false; });
+                },
+                closeParaPanel() {
+                    if (this.paraPanel) this.paraPanel.open = false;
+                },
+                toggleReplies(c) {
+                    if (c._open) { c._open = false; return; }
+                    c._open = true;
+                    if (c._replies && c._replies.length) return;
+                    c._loading = true;
+                    const ch = this.readChapters[this.current];
+                    const chapterid = (ch && ch.chapterid) || '';
+                    const novelid = BOOK.bookid || '';
+                    fetch(`/api/jj/replies?novelid=${novelid}&chapterid=${chapterid}&commentid=${c.commentId}`)
+                        .then((r) => r.json())
+                        .then((d) => { c._replies = (d && d.list) || []; })
+                        .catch(() => { c._replies = []; })
+                        .finally(() => { c._loading = false; });
+                },
+                // ---- 晋江登录 ----
+                openJjLogin() {
+                    this.jjLogin.open = true;
+                    if (!this.jjLoggedIn && !this.jjLogin.qrImage && !this.jjLogin.loading) this.startJjLogin();
+                },
+                closeJjLogin() {
+                    this.jjLogin.open = false;
+                    if (this.jjLogin.timer) { clearInterval(this.jjLogin.timer); this.jjLogin.timer = null; }
+                },
+                startJjLogin() {
+                    if (this.jjLogin.timer) { clearInterval(this.jjLogin.timer); this.jjLogin.timer = null; }
+                    this.jjLogin.loading = true;
+                    this.jjLogin.message = '';
+                    this.jjLogin.qrImage = '';
+                    fetch('/api/jj/login/scan')
+                        .then((r) => r.json())
+                        .then((d) => {
+                            if (!d.success) { this.jjLogin.message = d.message || '获取二维码失败'; return; }
+                            this.jjLogin.session = { jjreader_key: d.jjreader_key, device_key: d.device_key };
+                            this.jjLogin.qrImage = d.qrImage;
+                            this.jjLogin.notice = d.qr_code_notice || d.use_notice || '';
+                            this.jjLogin.message = '等待扫码...';
+                            this.jjLogin.timer = setInterval(() => this.pollJjLogin(), 2500);
+                        })
+                        .catch(() => { this.jjLogin.message = '网络错误'; })
+                        .finally(() => { this.jjLogin.loading = false; });
+                },
+                pollJjLogin() {
+                    const s = this.jjLogin.session;
+                    if (!s) return;
+                    fetch('/api/jj/login/check', {
+                        method: 'POST',
+                        headers: { 'Content-Type': 'application/json' },
+                        body: JSON.stringify(s),
+                    })
+                        .then((r) => r.json())
+                        .then((d) => {
+                            if (d.success && d.ok) {
+                                this.jjLoggedIn = true;
+                                this.jjLogin.message = '登录成功';
+                                if (this.jjLogin.timer) { clearInterval(this.jjLogin.timer); this.jjLogin.timer = null; }
+                            } else {
+                                this.jjLogin.message = (d && d.message) || '等待扫码...';
+                            }
+                        })
+                        .catch(() => {});
+                },
+                jjLogout() {
+                    fetch('/api/jj/logout', { method: 'POST' })
+                        .then(() => { this.jjLoggedIn = false; this.jjLogin.qrImage = ''; })
+                        .catch(() => {});
+                },
+                // ---- 番茄登录 ----
+                openFqLogin() {
+                    this.fqLogin.open = true;
+                    if (!this.fqLoggedIn && !this.fqLogin.qrImage && !this.fqLogin.loading) this.startFqLogin();
+                },
+                closeFqLogin() {
+                    this.fqLogin.open = false;
+                    if (this.fqLogin.timer) { clearInterval(this.fqLogin.timer); this.fqLogin.timer = null; }
+                },
+                startFqLogin() {
+                    if (this.fqLogin.timer) { clearInterval(this.fqLogin.timer); this.fqLogin.timer = null; }
+                    this.fqLogin.loading = true;
+                    this.fqLogin.message = '';
+                    this.fqLogin.qrImage = '';
+                    fetch('/api/fq/login/scan')
+                        .then((r) => r.json())
+                        .then((d) => {
+                            if (!d.success) { this.fqLogin.message = d.message || '获取二维码失败'; return; }
+                            this.fqLogin.session = { token: d.token, csrf: d.csrf, cookies: d.cookies };
+                            this.fqLogin.qrImage = d.qrImage;
+                            this.fqLogin.notice = d.notice || '';
+                            this.fqLogin.message = '等待扫码...';
+                            this.fqLogin.timer = setInterval(() => this.pollFqLogin(), 1000);
+                        })
+                        .catch(() => { this.fqLogin.message = '网络错误'; })
+                        .finally(() => { this.fqLogin.loading = false; });
+                },
+                pollFqLogin() {
+                    const s = this.fqLogin.session;
+                    if (!s) return;
+                    fetch('/api/fq/login/check', {
+                        method: 'POST',
+                        headers: { 'Content-Type': 'application/json' },
+                        body: JSON.stringify(s),
+                    })
+                        .then((r) => r.json())
+                        .then((d) => {
+                            if (d.success && d.cookies) this.fqLogin.session.cookies = d.cookies;
+                            if (d.success && d.ok) {
+                                this.fqLoggedIn = true;
+                                this.fqUser = d.user || null;
+                                this.fqLogin.message = '登录成功';
+                                if (this.fqLogin.timer) { clearInterval(this.fqLogin.timer); this.fqLogin.timer = null; }
+                            } else {
+                                this.fqLogin.message = (d && d.message) || '等待扫码...';
+                                if (d && d.status === 'expired') {
+                                    if (this.fqLogin.timer) { clearInterval(this.fqLogin.timer); this.fqLogin.timer = null; }
+                                    this.startFqLogin();
+                                }
+                            }
+                        })
+                        .catch(() => {});
+                },
+                fqLogout() {
+                    fetch('/api/fq/logout', { method: 'POST' })
+                        .then(() => { this.fqLoggedIn = false; this.fqUser = null; this.fqLogin.qrImage = ''; })
+                        .catch(() => {});
+                },
+                refreshFqStatus() {
+                    if (!this.isFanqie) return;
+                    fetch('/api/fq/status')
+                        .then((r) => r.json())
+                        .then((d) => { this.fqLoggedIn = !!(d && d.logged_in); this.fqUser = (d && d.user) || null; })
+                        .catch(() => {});
+                }
+            },
+            mounted() {
+                this.refreshFqStatus();
+                if (this.isJj) {
+                    fetch('/api/jj/status').then((r) => r.json())
+                        .then((d) => { this.jjLoggedIn = !!(d && d.logged_in); })
+                        .catch(() => {});
+                }
+            }
+        }).mount('#app');
+    </script>
+</body>
+</html>
