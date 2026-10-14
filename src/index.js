@@ -1,5 +1,5 @@
 'use strict';
-// 自留地 后端 — 入口
+// Novelia 后端 — 入口
 const express = require('express');
 const path = require('path');
 const fs = require('fs');
@@ -67,7 +67,7 @@ if (require.main === module) {
   metrics.start();
   require('./lib/bookpool').init();
   require('./lib/jjlists').init();
-  app.listen(PORT, () => console.log(`自留地 listening on :${PORT}`));
+  app.listen(PORT, () => console.log(`Novelia listening on :${PORT}`));
 }
 
 module.exports = app;

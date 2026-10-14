@@ -1,4 +1,4 @@
-# 自留地聚合后端 — 生产镜像
+# Novelia 后端 — 生产镜像
 # 无原生依赖, 直接跑 Node 官方 alpine 镜像, 无需编译工具链。
 FROM node:20-alpine
 

@@ -1,4 +1,4 @@
-# 自留地聚合后端 — 本地/服务器部署
+# Novelia 后端 — 本地/服务器部署
 # 用法:
 #   docker compose up -d --build
 #   数据持久化在 ./data (运行时账号/书池/兑换码), 头像在 ./public/uploads
@@ -18,7 +18,7 @@ services:
       # 初始管理员 (首次启动生成 data/admins.json; 不设则 admin / admin123, 登录后强制改密)
       # ADMIN_USER: "admin"
       # ADMIN_PASS: "换成强密码"
-      # 自定义用户 (可选): JSON 数组, 不设则用内置 demo@local / demo123456
+      # 自定义用户 (JSON 数组): 不设则无前台账号, 需通过注册或后台创建
       # SEED_USERS: '[{"email":"me@x.com","password":"pass123","api_key":"MyKey0000000000"}]'
       TZ: Asia/Shanghai
     volumes:

@@ -26,7 +26,7 @@ tools/sources_draft.js
 
 # 本地专用 (探针/技术文档, 仅本机使用, 不入库)
 tools/local/
-段评实现现状.md
+novelia-para-comments.md
 
 # Python 虚拟环境
 .venv/

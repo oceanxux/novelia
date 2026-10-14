@@ -5,7 +5,7 @@
 const crypto = require('crypto');
 
 // 内存用户表: email -> { password, api_key }
-// 可用环境变量 SEED_USERS 覆盖 (JSON: [{email,password}])
+// 用户由 SEED_USERS 环境变量注入 (JSON: [{email,password}]), 无内置默认账号
 const users = new Map();
 
 function genKey() {
@@ -14,7 +14,8 @@ function genKey() {
 
 function seed() {
   const raw = process.env.SEED_USERS;
-  const list = raw ? JSON.parse(raw) : [{ email: 'demo@local', password: 'demo123456' }];
+  if (!raw) return;
+  const list = JSON.parse(raw);
   for (const u of list) {
     users.set(u.email, { password: u.password, api_key: u.api_key || genKey() });
   }

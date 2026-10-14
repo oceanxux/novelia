@@ -27,7 +27,7 @@
 
     function render() {
         var bl = LIST;
-        document.title = (bl.listname || '书单') + ' - 自留地';
+        document.title = (bl.listname || '书单') + ' - Novelia';
         var navTitle = document.getElementById('navTitleText');
         if (navTitle) navTitle.textContent = bl.listname || '书单详情';
 

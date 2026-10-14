@@ -34,10 +34,10 @@ function fmtDate(ts) {
   return `${d.getFullYear()}-${p(d.getMonth() + 1)}-${p(d.getDate())}`;
 }
 
-// 演示用户 (未登录时用于渲染, 不硬编码任何真实密钥)
-function demoUser() {
-  return store.findByName('demo') || [...store.users.values()][0] || {
-    email: 'demo@local', nickname: 'demo', api_key: store.genKey(),
+// 未登录时的占位用户 (用于渲染空状态, 不硬编码任何真实密钥)
+function guestUser() {
+  return {
+    email: '', nickname: '游客', api_key: '',
     avatar: '/uploads/avatars/default-avatar.png', is_member: false,
     created_at: Date.now(), last_use_at: 0, stat_online: 0, stat_today: 0, devices: [],
   };
@@ -119,7 +119,7 @@ function renderPage(user) {
 
 // ---- 页面 ----
 function sendPage(req, res) {
-  const user = resolveUser(req) || demoUser();
+  const user = resolveUser(req) || guestUser();
   res.type('html').send(renderPage(user));
 }
 router.get('/user_center', sendPage);

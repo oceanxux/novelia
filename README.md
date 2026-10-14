@@ -1,6 +1,6 @@
-# 自留地聚合 · 后端 (Node.js)
+# Novelia · 后端 (Node.js)
 
-自建聚合书源后端: 把多个书源适配器聚合成统一 API, 并对外导出一个标准 Legado 书源 (`/book_source.json`)。
+Novelia 后端: 把多个内容源适配器聚合成统一 API, 并对外导出一个标准 Novelia 源 (`/book_source.json`)。
 
 前端页面与 API 同源, 导入书源后即可端到端跑通。
 
@@ -10,7 +10,7 @@
 
 ```bash
 npm install
-# 可选: 自定义用户 (JSON), 默认 demo@local / demo123456
+# 自定义前台用户 (JSON 数组, 可选)
 SEED_USERS='[{"email":"me@x.com","password":"pass123","api_key":"MyKey0000000000"}]' \
   PORT=7001 node src/index.js
 ```
@@ -19,21 +19,77 @@ SEED_USERS='[{"email":"me@x.com","password":"pass123","api_key":"MyKey0000000000
 
 ### Docker
 
+#### 方式一: docker compose (推荐, 从源码构建)
+
 ```bash
-docker compose up -d --build
+docker compose up -d --build     # 构建并后台启动
+docker compose logs -f           # 看日志
+docker compose down              # 停止并移除容器
 ```
 
-镜像基于 `node:20-alpine` (无原生依赖, 无需编译工具链), 以非 root 用户运行。
-运行时数据持久化在 `./data`, 上传头像在 `./public/uploads`, 不随容器重建丢失。
+`docker-compose.yml` 已配好端口、数据卷与环境变量, 开箱即用。数据持久化在 `./data`, 上传头像在 `./public/uploads`, 不随容器重建丢失。
 
-也可用预构建镜像 (CI 推送到 GHCR):
+#### 方式二: 预构建镜像 (GHCR)
+
+CI 会把镜像推到 GitHub Container Registry, 无需本地构建:
 
 ```bash
-docker run -d -p 7001:7001 -v "$PWD/data:/app/data" \
+# 首次需登录 (私有镜像; 公开镜像可跳过)
+echo "$GHCR_TOKEN" | docker login ghcr.io -u <owner> --password-stdin
+
+docker run -d --name novelia -p 7001:7001 \
+  -v "$PWD/data:/app/data" \
+  -v "$PWD/public/uploads:/app/public/uploads" \
+  -e ADMIN_PATH=/admin \
+  -e TZ=Asia/Shanghai \
+  --restart unless-stopped \
   ghcr.io/<owner>/<repo>:latest
 ```
 
-环境变量: `PORT` (默认 7001)、`DATA_DIR` (默认 `./data`)、`SEED_USERS`、`ADMIN_PATH` (后台路径, 默认 `/admin`)、`ADMIN_USER` / `ADMIN_PASS` (初始管理员, 默认 `admin` / `admin123`)。
+镜像基于 `node:20-alpine` (无原生依赖, 无需编译工具链), 以非 root 用户 `node` 运行, 内置健康检查 (`/version` 存活即视为健康)。
+
+#### 方式三: 自建镜像
+
+```bash
+docker build -t novelia:latest .
+docker run -d -p 7001:7001 -v "$PWD/data:/app/data" novelia:latest
+```
+
+#### 环境变量
+
+| 变量 | 默认 | 说明 |
+|------|------|------|
+| `PORT` | `7001` | 监听端口 |
+| `DATA_DIR` | `/app/data` | 运行时数据目录 (镜像内), 需挂卷持久化 |
+| `ADMIN_PATH` | `/admin` | 后台入口路径 |
+| `ADMIN_USER` / `ADMIN_PASS` | `admin` / `admin123` | 首次启动创建的管理员, 登录后强制改密 |
+| `SEED_USERS` | - | 自定义前台用户 (JSON 数组) |
+| `TZ` | - | 时区, 建议 `Asia/Shanghai` |
+
+#### 数据持久化
+
+容器内路径与宿主机挂载对应关系:
+
+| 容器内 | 宿主机 | 内容 |
+|--------|--------|------|
+| `/app/data` | `./data` | 用户/书池/兑换码/管理员等运行时数据 |
+| `/app/public/uploads` | `./public/uploads` | 用户上传的头像 |
+
+> 不挂卷时数据随容器删除而丢失; 生产环境务必挂载这两个目录。
+
+#### 更新镜像
+
+```bash
+docker compose pull && docker compose up -d   # 用 GHCR 镜像
+# 或从源码重建
+docker compose up -d --build
+```
+
+#### 常见问题
+
+- **端口占用**: 改 `-p 宿主机端口:7001` 或 `docker-compose.yml` 的 `ports` 映射即可, 容器内端口不变。
+- **权限错误 (数据目录不可写)**: 容器以 UID 1000 (`node`) 运行, 确保宿主机 `./data` 属主匹配, 或 `chown -R 1000:1000 ./data`。
+- **后台进不去**: 确认 `ADMIN_PATH` 与访问路径一致, 默认 `/admin`。
 
 ## 管理后台
 
@@ -74,7 +130,7 @@ environment:
 `/content` 需请求头 `X-Api-Key` = `base64(api_key)`。
 后台 API 需请求头 `X-Admin-Token` (登录后签发), 详见 [管理后台](#管理后台)。
 
-聚合书源 (Legado 用): `/book_source.json`、`/api/bs/search`、`/api/bs/detail`、`/api/bs/content` (host 由请求头动态推导)。
+Novelia 书源 (Legado 用): `/book_source.json`、`/api/bs/search`、`/api/bs/detail`、`/api/bs/content` (host 由请求头动态推导)。
 
 ## 已实现适配器 (12 个)
 
@@ -131,7 +187,7 @@ node tools/gen_source.js <网址>          # 丢网址, 自动探测选择器
 node tools/gen_source.js <url1> <url2>   # 一次多个
 ```
 
-详见 `tools/local/书源编写技术文档.md` §九、§十 (本地文档, 不入库)。
+详见 `tools/local/novelia-source-guide.md` §九、§十 (本地文档, 不入库)。
 
 ### 定制模块 (反爬/加密站)
 
@@ -155,13 +211,16 @@ module.exports = {
 ## 测试
 
 ```bash
-# 起服务 (端口与种子用户须匹配测试脚本)
+# 起服务 (端口与种子用户须匹配测试脚本; 测试账号通过环境变量注入)
 PORT=7099 DATA_DIR="$TMPDIR/agg7099" \
-  SEED_USERS='[{"email":"demo@local","password":"demo123456","api_key":"DemoKey12345678"}]' \
+  SEED_USERS='[{"email":"<测试邮箱>","password":"<测试密码>","api_key":"<测试KEY>"}]' \
   node src/index.js &
 
-node test/smoke.js   # 全源全链路 + 边界 (自动覆盖新源)
-node test/e2e.js     # 前端 data-URI 契约链路
+# 测试账号由环境变量提供, 须与上面 SEED_USERS 一致
+TEST_EMAIL='<测试邮箱>' TEST_PASS='<测试密码>' TEST_API_KEY='<测试KEY>' \
+  node test/smoke.js   # 全源全链路 + 边界 (自动覆盖新源)
+TEST_EMAIL='<测试邮箱>' TEST_PASS='<测试密码>' TEST_API_KEY='<测试KEY>' \
+  node test/e2e.js     # 前端 data-URI 契约链路
 ```
 
 `smoke.js` 遍历 `adapters.list()` 逐源跑 `search → details → catalog → content`; `e2e.js` 模拟前端 `ruleSearch.bookUrl` / `ruleBookInfo.tocUrl` / `buildChapterUrl` 的 data-URI 编解码全链路。

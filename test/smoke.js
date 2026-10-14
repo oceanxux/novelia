@@ -2,7 +2,10 @@
 const assert = require('assert');
 
 const BASE = 'http://127.0.0.1:7099';
-const API_KEY = Buffer.from('DemoKey12345678', 'utf8').toString('base64');
+// 测试账号: 由环境变量注入, 须与启动服务时的 SEED_USERS 一致 (见 README「测试」节)
+const TEST_EMAIL = process.env.TEST_EMAIL;
+const TEST_PASS = process.env.TEST_PASS;
+const API_KEY = Buffer.from(process.env.TEST_API_KEY || '', 'utf8').toString('base64');
 const H = {
   'Content-Type': 'application/json',
   'X-Api-Key': API_KEY,
@@ -86,10 +89,10 @@ const KW = { '新御书屋': '剑来', '番茄小说': '剑来', '全本': '剑�
   ok(b4.body && b4.body.code !== 200, `越界 cid 报错 code=${b4.body && b4.body.code}`);
 
   sec('4. 边界: 认证');
-  const l1 = await fetch(BASE + '/login', { method: 'POST', headers: { 'Content-Type': 'application/x-www-form-urlencoded' }, body: 'email=demo@local&password=wrong' });
+  const l1 = await fetch(BASE + '/login', { method: 'POST', headers: { 'Content-Type': 'application/x-www-form-urlencoded' }, body: `email=${TEST_EMAIL}&password=wrong` });
   const l1b = await l1.json();
   ok(l1b.code === 1000, `错误密码 code 1000 (${l1b.code})`);
-  const l2 = await fetch(BASE + '/login', { method: 'POST', headers: { 'Content-Type': 'application/x-www-form-urlencoded' }, body: 'email=demo@local&password=demo123456' });
+  const l2 = await fetch(BASE + '/login', { method: 'POST', headers: { 'Content-Type': 'application/x-www-form-urlencoded' }, body: `email=${TEST_EMAIL}&password=${TEST_PASS}` });
   const l2b = await l2.json();
   ok(l2b.code === 200 && l2b.data && l2b.data.user && l2b.data.user.api_key, '正确密码返回 api_key');
 

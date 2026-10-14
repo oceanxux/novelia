@@ -4,7 +4,10 @@
 const assert = require('assert');
 
 const BASE = 'http://127.0.0.1:7099';
-const API_KEY = Buffer.from('DemoKey12345678', 'utf8').toString('base64');
+// 测试账号: 由环境变量注入, 须与启动服务时的 SEED_USERS 一致 (见 README「测试」节)
+const TEST_EMAIL = process.env.TEST_EMAIL;
+const TEST_PASS = process.env.TEST_PASS;
+const API_KEY = Buffer.from(process.env.TEST_API_KEY || '', 'utf8').toString('base64');
 const HEADERS = {
   'Content-Type': 'application/json',
   'X-Api-Key': API_KEY,
@@ -92,9 +95,9 @@ function decodeDataUri(uri) {
   check(ct.data.source && ct.data.tab, 'data.source/tab 存在');
 
   sec('5. /login -> 前端 loginUrl 消费');
-  const lg = await (await fetch(`${BASE}/login`, { method: 'POST', headers: { 'Content-Type': 'application/x-www-form-urlencoded' }, body: 'email=demo@local&password=demo123456' })).json();
+  const lg = await (await fetch(`${BASE}/login`, { method: 'POST', headers: { 'Content-Type': 'application/x-www-form-urlencoded' }, body: `email=${TEST_EMAIL}&password=${TEST_PASS}` })).json();
   check(lg.code === 200 && lg.data && lg.data.user && lg.data.user.api_key, 'code 200 + data.user.api_key');
-  const lgBad = await (await fetch(`${BASE}/login`, { method: 'POST', headers: { 'Content-Type': 'application/x-www-form-urlencoded' }, body: 'email=demo@local&password=wrong' })).json();
+  const lgBad = await (await fetch(`${BASE}/login`, { method: 'POST', headers: { 'Content-Type': 'application/x-www-form-urlencoded' }, body: `email=${TEST_EMAIL}&password=wrong` })).json();
   check(lgBad.code === 1000, '错误密码返回 code 1000');
 
   console.log(`\n========== 结果: ${pass} PASS / ${fail} FAIL ==========`);

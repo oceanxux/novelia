@@ -23,11 +23,10 @@ function maskEmail(email) {
 }
 
 function seed() {
-  // 演示账号: 通过 SEED_USERS 环境变量覆盖 (JSON 数组), 否则用内置 demo
+  // 用户由 SEED_USERS 环境变量注入 (JSON 数组), 无内置默认账号
   const raw = process.env.SEED_USERS;
-  const list = raw
-    ? JSON.parse(raw)
-    : [{ email: 'demo@local', password: 'demo123456', nickname: 'demo' }];
+  if (!raw) return;
+  const list = JSON.parse(raw);
   const now = Date.now();
   for (const u of list) {
     users.set(u.email, {

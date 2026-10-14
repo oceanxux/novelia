@@ -124,12 +124,12 @@ function buildFullBookSource(base) {
   // 深拷贝
   const src = JSON.parse(JSON.stringify(tpl[0]));
 
-  src.bookSourceName = '📚自留地聚合';
-  src.bookSourceGroup = '自留地';
+  src.bookSourceName = '📚Novelia聚合';
+  src.bookSourceGroup = 'Novelia';
   src.bookSourceUrl = base;
 
   // 自定义说明信息
-  src.bookSourceComment = `自留地全功能聚合书源\n本源聚合全网多源站，包含完整登录中心、发现页分类、智能段评与排版。\n服务器基准地址：${base}\n当前更新时间：${new Date().toLocaleString('zh-CN')}`;
+  src.bookSourceComment = `Novelia全功能聚合书源\n本源聚合全网多源站，包含完整登录中心、发现页分类、智能段评与排版。\n服务器基准地址：${base}\n当前更新时间：${new Date().toLocaleString('zh-CN')}`;
 
   // 替换 jsLib 中写死的远端服务器列表，将当前部署的基准站点设为主服务器
   const oldHostsBlock = `var hosts = [
@@ -159,7 +159,7 @@ function buildFullBookSource(base) {
     try {
       const uiList = JSON.parse(src.loginUi);
       uiList.forEach((btn) => {
-        if (btn.name === '📚书山发布页') btn.name = '📚自留地发现';
+        if (btn.name === '📚书山发布页') btn.name = '📚Novelia发现';
         if (btn.name === '☕打赏享福利') btn.name = '🎫会员兑换';
       });
       src.loginUi = JSON.stringify(uiList);
@@ -177,11 +177,11 @@ router.get('/book_source.json', (req, res) => {
   // 若明确请求纯净版
   if (mode === 'simple') {
     const simpleSrc = {
-      bookSourceName: '📚自留地聚合 (纯净版)',
-      bookSourceGroup: '自留地',
+      bookSourceName: '📚Novelia聚合 (纯净版)',
+      bookSourceGroup: 'Novelia',
       bookSourceUrl: base,
       bookSourceType: 0,
-      bookSourceComment: '自留地轻量聚合书源: 纯净无脚本，低延迟通用。',
+      bookSourceComment: 'Novelia轻量聚合书源: 纯净无脚本，低延迟通用。',
       enabled: true,
       enabledExplore: false,
       enabledCookieJar: false,
@@ -229,7 +229,7 @@ router.get('/book_source.json', (req, res) => {
 
   // 回退保护
   res.type('application/json').send(JSON.stringify([{
-    bookSourceName: '📚自留地聚合',
+    bookSourceName: '📚Novelia聚合',
     bookSourceUrl: base,
     enabled: true,
   }], null, 2));
