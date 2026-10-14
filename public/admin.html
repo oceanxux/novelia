@@ -3,10 +3,12 @@
 <head>
 <meta charset="utf-8">
 <meta name="viewport" content="width=device-width, initial-scale=1">
-<title>自留地 · 书源管理</title>
+<title>Novelia · 书源管理</title>
+<link rel="icon" type="image/svg+xml" href="/image/logo.svg">
+<link rel="alternate icon" href="/favicon.ico">
 <link rel="stylesheet" href="/theme.css">
 <style>
-  .layout { display: grid; grid-template-columns: 320px 1fr; min-height: calc(100vh - 62px); }
+  .layout { display: grid; grid-template-columns: 340px 1fr; min-height: calc(100vh - 62px); }
 
   /* 左栏 */
   .side {
@@ -14,9 +16,16 @@
     backdrop-filter: blur(14px); -webkit-backdrop-filter: blur(14px);
     display: flex; flex-direction: column; min-height: 0;
   }
-  .side .tools { display: flex; gap: 10px; padding: 16px 16px 14px; border-bottom: 1px solid var(--line); }
-  .side .tools .primary { flex: 1; border-radius: 10px; }
-  .side .tools .ghost { width: 42px; display: grid; place-items: center; font-size: 16px; border-radius: 10px; }
+  .side .tools {
+    display: flex; flex-direction: column; gap: 8px; padding: 14px 14px 12px; border-bottom: 1px solid var(--line);
+  }
+  .side .tools-row { display: flex; gap: 8px; width: 100%; }
+  .side .tools .primary { width: 100%; border-radius: 10px; padding: 9px 12px; font-size: 13.5px; }
+  .side .tools .btn-tool {
+    flex: 1; display: inline-flex; align-items: center; justify-content: center; gap: 5px;
+    font-size: 12.5px; padding: 7px 10px; border-radius: 9px; font-weight: 600;
+  }
+  .side .tools .btn-icon { width: 36px; flex: 0 0 36px; padding: 0; }
   .side .slist { overflow: auto; flex: 1; padding: 10px; }
 
   .srow {
@@ -108,7 +117,7 @@
 </head>
 <body>
 <div class="topbar">
-  <div class="brand"><span class="dot">📚</span> 自留地</div>
+  <div class="brand"><span class="dot">📚</span> Novelia</div>
   <nav class="nav">
     <a href="/booklist_index">首页</a>
     <a href="/debug">发现</a>
@@ -122,9 +131,12 @@
 <div class="layout">
   <div class="side">
     <div class="tools">
-      <button class="primary" id="newBtn">+ 新增书源</button>
-      <button class="ghost" id="importBtn" title="导入 JSON 书源">📥</button>
-      <button class="ghost" id="refreshBtn" title="刷新列表">⟳</button>
+      <button class="primary" id="newBtn">+ 新增自定义书源</button>
+      <div class="tools-row">
+        <button class="ghost btn-tool" id="healthBtn" title="测试全部书源连通性">🩺 健康自检</button>
+        <button class="ghost btn-tool" id="importBtn" title="导入 JSON 或阅读配置">📥 导入</button>
+        <button class="ghost btn-tool btn-icon" id="refreshBtn" title="刷新列表">⟳</button>
+      </div>
     </div>
     <div class="slist" id="slist"></div>
     <div class="foot" id="sfoot"></div>
@@ -132,6 +144,35 @@
 
   <div class="main">
     <div class="editor" id="editor"><div class="empty">← 选择左侧书源查看 / 编辑, 或点「新增书源」</div></div>
+  </div>
+</div>
+
+
+<!-- 健康自检 模态窗 -->
+<div class="modal-overlay" id="healthModal">
+  <div class="modal-card" style="max-width:640px;">
+    <div class="modal-hd">
+      <h3><span>🩺</span> 书源连通性与检索健康自检</h3>
+      <span class="spacer"></span>
+      <button class="ghost" id="closeHealthModal" style="width:30px;height:30px;padding:0;font-size:14px;border-radius:8px;">✕</button>
+    </div>
+    <div class="modal-bd">
+      <div style="display:flex;align-items:center;gap:10px;margin-bottom:14px;">
+        <label style="font-size:13px;color:var(--dim);">测试检索词:</label>
+        <input id="healthKeyword" value="剑来" style="width:140px;padding:6px 10px;font-size:13px;">
+        <button class="primary" id="startHealthBtn" style="padding:6px 14px;font-size:13px;">开始自检</button>
+        <span class="spacer"></span>
+        <span id="healthSummary" style="font-size:13px;font-weight:600;"></span>
+      </div>
+      <div id="healthList" style="max-height:360px;overflow-y:auto;display:flex;flex-direction:column;gap:8px;padding-right:4px;">
+        <div class="empty" style="padding:30px 0;">点击「开始自检」全面检查所有适配器的响应速度与可用状态</div>
+      </div>
+    </div>
+    <div class="modal-ft">
+      <span style="font-size:12px;color:var(--dim);">检测超时阈值: 8s / 真实关键词并发检索</span>
+      <span class="spacer"></span>
+      <button class="ghost" id="doneHealthBtn">关闭</button>
+    </div>
   </div>
 </div>
 
@@ -588,6 +629,73 @@ $('#doImportBtn').onclick = () => {
     banner('JSON 解析成功，已载入编辑器。检查选择器后点击「创建」保存入库。', 'ok');
   } catch (e) {
     $('#importErr').textContent = '解析失败: ' + e.message;
+  }
+};
+
+
+// ---- 一键健康自检 ----
+$('#healthBtn').onclick = () => {
+  $('#healthModal').classList.add('open');
+};
+$('#closeHealthModal').onclick = () => $('#healthModal').classList.remove('open');
+$('#doneHealthBtn').onclick = () => $('#healthModal').classList.remove('open');
+
+$('#startHealthBtn').onclick = async () => {
+  const kw = ($('#healthKeyword').value || '剑来').trim();
+  const btn = $('#startHealthBtn');
+  const sum = $('#healthSummary');
+  const box = $('#healthList');
+
+  btn.disabled = true;
+  btn.textContent = '检测中...';
+  sum.innerHTML = '<span style="color:var(--accent);">正在并发测试所有书源...</span>';
+  box.innerHTML = '<div class="empty" style="padding:30px 0;">⏳ 正在与各书源建立连接并检索，请稍候...</div>';
+
+  try {
+    const res = await AF('/api/healthcheck', {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ keyword: kw }),
+    }).then(r => r.json());
+
+    btn.disabled = false;
+    btn.textContent = '重新自检';
+
+    if (!res.ok) {
+      sum.innerHTML = '<span style="color:var(--err);">自检失败</span>';
+      box.innerHTML = '<div class="empty" style="color:var(--err);">' + esc(res.error || '请求异常') + '</div>';
+      return;
+    }
+
+    const { total, healthy, unhealthy } = res.summary;
+    sum.innerHTML = '<span style="color:var(--ok);">可用: ' + healthy + '</span> / <span style="color:' + (unhealthy ? 'var(--err)' : 'var(--dim)') + ';">异常: ' + unhealthy + '</span> (共 ' + total + ' 个)';
+
+    box.innerHTML = res.results.map(r => {
+      const isOk = r.ok;
+      const badge = isOk 
+        ? '<span class="pill ok" style="color:var(--ok);border-color:rgba(18,163,102,0.3);background:rgba(18,163,102,0.1);">✓ 正常 (' + r.ms + 'ms)</span>'
+        : '<span class="pill err" style="color:var(--err);border-color:rgba(229,72,77,0.3);background:rgba(229,72,77,0.1);">✗ 异常 (' + r.ms + 'ms)</span>';
+      
+      const extra = isOk
+        ? (r.bookCount > 0 ? '找到 ' + r.bookCount + ' 本 (例: 《' + esc(r.firstBook || '') + '》)' : (r.warn || '结果为 0'))
+        : '<span style="color:var(--err);">' + esc(r.error) + '</span>';
+
+      return '<div style="display:flex;align-items:center;justify-content:space-between;padding:10px 14px;background:var(--card-bg, rgba(255,255,255,0.03));border:1px solid var(--border);border-radius:10px;font-size:13px;">' +
+        '<div style="display:flex;align-items:center;gap:10px;">' +
+          '<span style="font-weight:600;">' + esc(r.name) + '</span>' +
+          badge +
+        '</div>' +
+        '<div style="font-size:12px;color:var(--dim);max-width:280px;text-align:right;overflow:hidden;text-overflow:ellipsis;white-space:nowrap;">' +
+          extra +
+        '</div>' +
+      '</div>';
+    }).join('');
+
+  } catch (e) {
+    btn.disabled = false;
+    btn.textContent = '开始自检';
+    sum.innerHTML = '<span style="color:var(--err);">请求出错</span>';
+    box.innerHTML = '<div class="empty" style="color:var(--err);">' + esc(e.message) + '</div>';
   }
 };
 

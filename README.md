@@ -1,4 +1,4 @@
-# Novelia · 后端 (Node.js)
+# Novelia 
 
 Novelia 后端: 把多个内容源适配器聚合成统一 API, 并对外导出一个标准 Novelia 源 (`/book_source.json`)。
 
@@ -213,7 +213,7 @@ PORT=7099 DATA_DIR="$TMPDIR/agg7099" \
 
 ## 书源导入
 
-1. 启动服务后访问 `/book_source.json`, 得到标准 Legado 书源 JSON (host 由请求头动态推导)。
+1. 启动服务后访问 `/book_source.json`, 得到标准 JSON (host 由请求头动态推导)。
 2. 在阅读 3.0 中导入该 JSON 即可搜索与阅读。
 
 ## 结构

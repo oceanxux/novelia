@@ -4,6 +4,8 @@
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no, viewport-fit=cover">
     <title>Novelia · 探索全网好书</title>
+    <link rel="icon" type="image/svg+xml" href="/image/logo.svg">
+    <link rel="alternate icon" href="/favicon.ico">
     <link href="/css/bootstrap.min.css" rel="stylesheet">
     <link href="/css/all.min.css" rel="stylesheet">
     <link href="/css/sweetalert2.min.css" rel="stylesheet">
@@ -47,15 +49,11 @@
             letter-spacing: -0.4px;
         }
         .brand-logo-icon {
-            width: 34px;
-            height: 34px;
-            background: var(--accent-gradient);
-            border-radius: 10px;
-            display: flex;
-            align-items: center;
-            justify-content: center;
-            color: #fff;
-            font-size: 16px;
+            width: 32px;
+            height: 32px;
+            background: url('/image/logo.svg') center/cover no-repeat;
+            border-radius: 9px;
+            display: inline-block;
             box-shadow: 0 4px 12px rgba(99, 102, 241, 0.35);
         }
         .nav-search-box {
@@ -304,9 +302,7 @@
     <div class="nav-container">
         <!-- 品牌标识 -->
         <a href="/" class="brand-link">
-            <div class="brand-logo-icon">
-                <i class="fas fa-book-sparkles"></i>
-            </div>
+            <span class="brand-logo-icon"></span>
             <span>Novelia</span>
         </a>
 

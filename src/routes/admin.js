@@ -121,4 +121,46 @@ router.post('/api/test', async (req, res) => {
   }
 });
 
+
+// 一键健康自检 API: 并发/超时快速检测所有书源的连通性与检索能力
+router.post('/api/healthcheck', async (req, res) => {
+  const keyword = (req.body && req.body.keyword) || '剑来';
+  const list = adapters.list();
+  const timeoutMs = 8000;
+
+  const results = await Promise.all(list.map(async (name) => {
+    const adapter = adapters.get(name);
+    const t0 = Date.now();
+    if (!adapter) {
+      return { name, ok: false, ms: 0, error: '适配器未就绪' };
+    }
+    try {
+      const searchPromise = adapter.search(keyword, 1);
+      const timerPromise = new Promise((_, reject) =>
+        setTimeout(() => reject(new Error('检测超时 (8s)')), timeoutMs)
+      );
+      const books = await Promise.race([searchPromise, timerPromise]);
+      const ms = Date.now() - t0;
+      if (Array.isArray(books) && books.length > 0) {
+        return { name, ok: true, ms, bookCount: books.length, firstBook: books[0].book_name };
+      } else if (Array.isArray(books)) {
+        return { name, ok: true, ms, bookCount: 0, warn: '未检索到指定关键词结果' };
+      } else {
+        return { name, ok: false, ms, error: '返回数据格式不符合预期' };
+      }
+    } catch (e) {
+      return { name, ok: false, ms: Date.now() - t0, error: e.message || '请求失败' };
+    }
+  }));
+
+  const total = results.length;
+  const healthy = results.filter(r => r.ok).length;
+  res.json({
+    ok: true,
+    summary: { total, healthy, unhealthy: total - healthy, keyword },
+    results
+  });
+});
+
 module.exports = router;
+

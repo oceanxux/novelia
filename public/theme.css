@@ -63,10 +63,11 @@ a:hover { text-decoration: underline; }
   -webkit-backdrop-filter: saturate(180%) blur(18px);
   border-bottom: 1px solid rgba(228,231,240,.9); position: sticky; top: 0; z-index: 30;
 }
-.brand { font-size: 16.5px; font-weight: 800; letter-spacing: .2px; display: flex; align-items: center; gap: 9px; }
+.brand { font-size: 16.5px; font-weight: 800; letter-spacing: .2px; display: flex; align-items: center; gap: 10px; color: #0f172a; }
 .brand .dot {
-  display: inline-grid; place-items: center; width: 30px; height: 30px; border-radius: 10px;
-  background: var(--grad); color: #fff; font-size: 15px; box-shadow: 0 4px 12px -3px rgba(91,108,255,.6);
+  display: inline-block; width: 32px; height: 32px; border-radius: 9px;
+  background: url('/image/logo.svg') center/cover no-repeat;
+  box-shadow: 0 4px 12px -2px rgba(99,102,241,.38);
 }
 .nav { display: flex; gap: 4px; margin-left: 4px; padding: 4px; background: var(--panel-3); border-radius: 999px; }
 .nav a {

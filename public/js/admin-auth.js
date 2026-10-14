@@ -69,7 +69,8 @@
     background: rgba(15, 23, 42, 0.6); color: #fff;
     transition: all .22s ease;
   }
-  .zld-card input::placeholder { color: rgba(148, 163, 184, 0.45); }
+  .zld-card input::placeholder { color: rgba(148, 163, 184, 0.28); font-size: 13.5px; transition: color .2s; }
+  .zld-card input:focus::placeholder { color: rgba(148, 163, 184, 0.15); }
   .zld-card input:focus {
     border-color: #818cf8; background: rgba(15, 23, 42, 0.9);
     box-shadow: 0 0 0 3px rgba(99, 102, 241, 0.25);
@@ -158,22 +159,22 @@
     const m = mount(`<div class="zld-card">
       <div class="zld-badge">
         <i class="fas fa-shield-halved"></i>
-        <span>自留地 · 管理控制台</span>
+        <span>Novelia · 控制中心</span>
       </div>
       <h2>管理后台登录</h2>
-      <p class="sub">请验证管理员身份以访问书源及账户系统</p>
+      <p class="sub">Novelia 管理控制台 · 请验证管理员身份</p>
       <div class="zld-group">
         <label>管理账号</label>
         <div class="zld-input-wrap">
           <span class="zld-ico">👤</span>
-          <input id="zld_u" autocomplete="username" placeholder="输入管理员用户名" value="admin">
+          <input id="zld_u" autocomplete="username" placeholder="admin">
         </div>
       </div>
       <div class="zld-group">
         <label>管理密码</label>
         <div class="zld-input-wrap">
           <span class="zld-ico">🔒</span>
-          <input id="zld_p" type="password" autocomplete="current-password" placeholder="输入访问密码">
+          <input id="zld_p" type="password" autocomplete="current-password" placeholder="admin123">
         </div>
       </div>
       <div class="zld-err" id="zld_e">${esc(msg || '')}</div>
@@ -181,13 +182,10 @@
         <span>立即登录</span>
         <span style="font-size:16px;">→</span>
       </button>
-      <div class="zld-hint">
-        初始凭据: admin / admin123
-        <a href="/booklist_index">返回前台首页</a>
-      </div>
+      <div class="zld-hint"><a href="/booklist_index">← 返回前台书架</a></div>
     </div>`);
     const u = m.querySelector('#zld_u'), p = m.querySelector('#zld_p'), e = m.querySelector('#zld_e'), b = m.querySelector('#zld_go');
-    if (u.value) p.focus(); else u.focus();
+    u.focus();
     const submit = async () => {
       e.textContent = '';
       b.disabled = true;

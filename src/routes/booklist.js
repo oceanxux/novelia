@@ -17,6 +17,7 @@ const store = require('../lib/userstore');
 const userRoute = require('./user');
 const bookpool = require('../lib/bookpool');
 const jjlists = require('../lib/jjlists');
+const jjranks = require('../lib/jjranks');
 const adapters = require('../adapters');
 
 const router = express.Router();
@@ -148,15 +149,19 @@ router.post('/api/chapter', async (req, res) => {
 });
 
 // ---- 晋江书单详情 ----
-function renderJjDetail(listid) {
+async function renderJjDetail(listid) {
   let html = fs.readFileSync(JJ_TPL, 'utf8');
-  const data = jjlists.get(listid) || { listid, listname: '书单不存在', books: [] };
+  let data = null;
+  if (String(listid).startsWith('rank_')) {
+    data = await jjranks.getDetail(listid);
+  }
+  if (!data) data = jjlists.get(listid) || { listid, listname: '书单不存在', books: [] };
   html = html.replace('{{LIST_JSON}}', jsonForScript(data));
   return html;
 }
-function sendJjDetail(req, res) {
+async function sendJjDetail(req, res) {
   const listid = String(req.query.listid || req.query.id || '');
-  res.type('html').send(renderJjDetail(listid));
+  res.type('html').send(await renderJjDetail(listid));
 }
 router.get('/booklist_jjdetail', sendJjDetail);
 router.get('/booklist_jjdetail.php', sendJjDetail);
@@ -176,19 +181,30 @@ router.get('/details', async (req, res) => {
   }
 });
 
-// ---- 本地书单样本 (由 jj 样本派生, 补齐本地字段) ----
-function localBooklists() {
+// ---- 书单数据 (优先晋江实时榜单派生, 失败降级本地样本) ----
+async function loadLiveBooklists() {
+  try {
+    const ranks = await jjranks.getLists();
+    if (ranks && ranks.length > 0) return ranks.slice();
+  } catch (e) {}
   return seed.jjBooklists.map((b) => ({
     id: b.listid,
+    listid: b.listid,
     title: b.title,
+    listname: b.title,
     description: b.description,
+    introduction: b.description,
     book_count: b.book_count,
+    booknum: b.book_count,
     like_count: b.like_count,
+    favnum: b.like_count,
     view_count: b.view_count,
     comment_count: b.comment_count || 0,
     books: b.books || [],
     nickname: b.nickname,
+    reader_name: b.nickname,
     avatar: b.avatar,
+    reader_avatar: b.avatar,
     time_label: '',
     has_new_books: false,
     custom_keywords: (b.categories || []).join(','),
@@ -206,31 +222,33 @@ function shuffle(arr) {
 }
 
 // ---- 推荐书单 ----
-router.get('/api/get_recommended_booklists', (req, res) => {
+router.get('/api/get_recommended_booklists', async (req, res) => {
   const page = parseInt(req.query.page, 10) || 1;
   const limit = parseInt(req.query.limit, 10) || 5;
-  const all = shuffle(localBooklists());
+  const all = shuffle(await loadLiveBooklists());
   const start = (page - 1) * limit;
   const slice = all.slice(start, start + limit);
   res.json({ success: true, booklists: slice, page, hasMore: start + limit < all.length });
 });
 
 // ---- 随机书单 ----
-router.get('/api/get_random_booklists', (req, res) => {
-  res.json({ success: true, booklists: shuffle(localBooklists()).slice(0, 8) });
+router.get('/api/get_random_booklists', async (req, res) => {
+  const all = await loadLiveBooklists();
+  res.json({ success: true, booklists: shuffle(all).slice(0, 8) });
 });
 
 // ---- 晋江书单 ----
-router.get('/api/get_jj_booklists', (req, res) => {
-  res.json({ success: true, booklists: shuffle(seed.jjBooklists).slice(0, 10) });
+router.get('/api/get_jj_booklists', async (req, res) => {
+  const all = await loadLiveBooklists();
+  res.json({ success: true, booklists: shuffle(all).slice(0, 10) });
 });
 
 // ---- 晋江搜索 ----
-router.get('/api/search_jj_booklists', (req, res) => {
+router.get('/api/search_jj_booklists', async (req, res) => {
   const q = String(req.query.q || '').trim();
   const page = parseInt(req.query.page, 10) || 1;
   const perPage = 20;
-  let list = seed.jjBooklists;
+  let list = await loadLiveBooklists();
   if (q) {
     const kw = q.toLowerCase();
     list = list.filter((b) =>
@@ -245,11 +263,11 @@ router.get('/api/search_jj_booklists', (req, res) => {
 });
 
 // ---- 书单广场 (featured) ----
-router.get('/api/get_featured_booklists', (req, res) => {
+router.get('/api/get_featured_booklists', async (req, res) => {
   const page = parseInt(req.query.page, 10) || 1;
   const perPage = parseInt(req.query.limit, 10) || 10;
   const sort = String(req.query.sort || 'latest');
-  let all = localBooklists();
+  let all = (await loadLiveBooklists()).slice();
   if (sort === 'likes') all.sort((a, b) => b.like_count - a.like_count);
   else if (sort === 'views') all.sort((a, b) => b.view_count - a.view_count);
   else if (sort === 'week' || sort === 'month') all.sort((a, b) => b.like_count - a.like_count);
