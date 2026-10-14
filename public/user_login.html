@@ -703,12 +703,22 @@ let cachedEmail = '';
 let cachedPassword = '';
 let countdownTimer = null;
 
-// 自动检测已登录状态跳转
+// 自动检测已登录状态跳转 (若带有 error 参数说明服务端鉴权失败，须先清理本地失效凭据避免死循环)
 (function checkAuth() {
+  const params = new URLSearchParams(window.location.search);
+  const errorMsg = params.get('error');
+  if (errorMsg) {
+    localStorage.removeItem('user_token');
+    localStorage.removeItem('user_info');
+    document.cookie = 'user_token=; expires=Thu, 01 Jan 1970 00:00:00 UTC; path=/;';
+    document.cookie = 'X-Novel-Token=; expires=Thu, 01 Jan 1970 00:00:00 UTC; path=/;';
+    return;
+  }
+
   const token = localStorage.getItem('user_token');
   const hasTokenCookie = document.cookie.split(';').some(c => c.trim().startsWith('X-Novel-Token=') || c.trim().startsWith('user_token='));
   if (token || hasTokenCookie) {
-    const returnUrl = new URLSearchParams(window.location.search).get('return_url') || 'user_center';
+    const returnUrl = params.get('return_url') || 'user_center';
     window.location.href = returnUrl;
   }
 })();

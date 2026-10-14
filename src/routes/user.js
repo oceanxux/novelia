@@ -57,7 +57,21 @@ function resolveUser(req) {
     const u = store.findByKey(String(bodyKey).trim());
     if (u) return u;
   }
-  const token = req.get('X-Novel-Token') || (req.cookies && req.cookies.user_token);
+  // 解析 Cookie 字符串
+  let cookieToken = '';
+  const cookieHeader = req.get('cookie') || '';
+  if (cookieHeader) {
+    const parts = cookieHeader.split(';');
+    for (const p of parts) {
+      const kv = p.trim().split('=');
+      if (kv[0] === 'user_token' || kv[0] === 'X-Novel-Token') {
+        cookieToken = decodeURIComponent(kv.slice(1).join('='));
+        break;
+      }
+    }
+  }
+
+  const token = req.get('X-Novel-Token') || cookieToken || (req.cookies && req.cookies.user_token);
   if (token) {
     const u = store.findByKey(String(token).trim());
     if (u) return u;
