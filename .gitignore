@@ -24,8 +24,10 @@ public/uploads/avatars/*
 tools/gen_sources.json
 tools/sources_draft.js
 
-# 本地专用 (探针/技术文档, 仅本机使用, 不入库)
+# 本地专用 (探针/技术文档/生成器/测试, 仅本机使用, 不入库)
 tools/local/
+tools/gen_source.js
+test/
 novelia-para-comments.md
 
 # Python 虚拟环境

@@ -19,5 +19,7 @@ data/fq_account.json
 tools/gen_sources.json
 tools/sources_draft.js
 
-# 本地专用 (探针/技术文档, 不打进镜像)
+# 本地专用 (探针/技术文档/生成器/测试, 不打进镜像)
 tools/local/
+tools/gen_source.js
+test/

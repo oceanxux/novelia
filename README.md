@@ -180,14 +180,7 @@ Novelia 书源 (Legado 用): `/book_source.json`、`/api/bs/search`、`/api/bs/d
 }
 ```
 
-自动生成配置:
-
-```bash
-node tools/gen_source.js <网址>          # 丢网址, 自动探测选择器
-node tools/gen_source.js <url1> <url2>   # 一次多个
-```
-
-详见 `tools/local/novelia-source-guide.md` §九、§十 (本地文档, 不入库)。
+> 选择器批量探测与生成器为本地工具 (不入库), 详见本机 `tools/local/` 技术文档。
 
 ### 定制模块 (反爬/加密站)
 
@@ -210,20 +203,13 @@ module.exports = {
 
 ## 测试
 
+冒烟测试 (`smoke.js`) 与端到端契约测试 (`e2e.js`) 为本地脚本 (不入库), 需自行准备并起服务后运行:
+
 ```bash
-# 起服务 (端口与种子用户须匹配测试脚本; 测试账号通过环境变量注入)
 PORT=7099 DATA_DIR="$TMPDIR/agg7099" \
   SEED_USERS='[{"email":"<测试邮箱>","password":"<测试密码>","api_key":"<测试KEY>"}]' \
   node src/index.js &
-
-# 测试账号由环境变量提供, 须与上面 SEED_USERS 一致
-TEST_EMAIL='<测试邮箱>' TEST_PASS='<测试密码>' TEST_API_KEY='<测试KEY>' \
-  node test/smoke.js   # 全源全链路 + 边界 (自动覆盖新源)
-TEST_EMAIL='<测试邮箱>' TEST_PASS='<测试密码>' TEST_API_KEY='<测试KEY>' \
-  node test/e2e.js     # 前端 data-URI 契约链路
 ```
-
-`smoke.js` 遍历 `adapters.list()` 逐源跑 `search → details → catalog → content`; `e2e.js` 模拟前端 `ruleSearch.bookUrl` / `ruleBookInfo.tocUrl` / `buildChapterUrl` 的 data-URI 编解码全链路。
 
 ## 书源导入
 
@@ -250,6 +236,4 @@ src/
 │   ├── auth.js           # 前台 API 鉴权 (X-Api-Key)
 │   └── adminauth.js      # 后台鉴权 (X-Admin-Token + 强制改密)
 └── routes/               # search/detail/catalog/content/admin/adminauth/...
-tools/gen_source.js       # 书源配置生成器
-test/                     # smoke + e2e
 ```
