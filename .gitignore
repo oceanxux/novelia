@@ -8,6 +8,7 @@ data/bookpool.json
 data/jj_account.json
 data/user-sources.json
 data/admins.json
+data/fq_account.json
 
 # 用户上传的头像 (保留默认头像)
 public/uploads/avatars/*
@@ -25,6 +26,7 @@ tools/sources_draft.js
 
 # 本地专用 (探针/技术文档, 仅本机使用, 不入库)
 tools/local/
+段评实现现状.md
 
 # Python 虚拟环境
 .venv/

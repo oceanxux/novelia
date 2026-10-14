@@ -13,6 +13,7 @@ data/bookpool.json
 data/jj_account.json
 data/user-sources.json
 data/admins.json
+data/fq_account.json
 
 # 生成器中间产物
 tools/gen_sources.json
