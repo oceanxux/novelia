@@ -7,14 +7,74 @@ const store = require('../adapters/store');
 
 const router = express.Router();
 
-// 登录: form-encoded 或 JSON, 返回 { code, data: { user, device } }
+// 登录 / 查询: form-encoded 或 JSON, 返回 { code, data: { user, device } }
+// 兼容 Legado 手机书源中 source.getLoginInfoMap() -> /login 以及 get_user() -> /login(key) 契约
+const userstore = require('../lib/userstore');
 router.post('/login', (req, res) => {
-  const email = String(req.body.email || '').trim();
+  const key = String(req.body.key || '').trim();
+  if (key) {
+    let rawKey = key;
+    try { rawKey = Buffer.from(key, 'base64').toString('utf8'); } catch (e) {}
+    const user = userstore.findByKey(rawKey) || userstore.findByKey(key);
+    if (!user) return res.json({ success: false, code: 1003, message: '密钥无效或用户不存在' });
+    return res.json({
+      success: true,
+      code: 200,
+      data: {
+        user: {
+          email: user.email,
+          nickname: user.nickname || user.email.split('@')[0],
+          api_key: user.api_key,
+          is_member: !!user.is_member,
+          status: user.disabled ? '封禁' : (user.is_member ? '会员' : '正常'),
+        },
+        device: {
+          id: (user.devices && user.devices[0] && user.devices[0].id) || 'dev_' + user.api_key.slice(0, 8),
+          online_count: 1,
+          device_limit: 5,
+          total_count: (user.devices || []).length,
+        },
+      },
+    });
+  }
+
+  const email = String(req.body.email || '').trim().toLowerCase();
   const password = String(req.body.password || '').trim();
   if (!email || !password) return res.json({ success: false, code: 1001, message: '邮箱和密码不能为空' });
-  const r = auth.login(email, password);
-  if (r.code !== 200) return res.json({ success: false, code: r.code, message: r.message });
-  res.json({ success: true, ...r });
+  const user = userstore.get(email);
+  if (!user) return res.json({ success: false, code: 1003, message: '用户不存在' });
+  if (user.disabled) return res.json({ success: false, code: 1004, message: '该账号已被禁用' });
+  if (user.password !== password) return res.json({ success: false, code: 1000, message: '密码错误' });
+
+  user.last_use_at = Date.now();
+  userstore.save();
+
+  // 设置 Cookie (30天)，供 Legado CookieJar 与 WebView 跨域复用
+  const maxAge = 30 * 24 * 60 * 60 * 1000;
+  const cookieOpt = `path=/; Max-Age=${maxAge / 1000}; SameSite=Lax`;
+  res.setHeader('Set-Cookie', [
+    `user_token=${user.api_key}; ${cookieOpt}`,
+    `X-Novel-Token=${user.api_key}; ${cookieOpt}`,
+  ]);
+
+  res.json({
+    success: true,
+    code: 200,
+    data: {
+      user: {
+        email: user.email,
+        nickname: user.nickname || user.email.split('@')[0],
+        api_key: user.api_key,
+        is_member: !!user.is_member,
+      },
+      device: {
+        id: (user.devices && user.devices[0] && user.devices[0].id) || 'dev_' + user.api_key.slice(0, 8),
+        online_count: 1,
+        device_limit: 5,
+        total_count: (user.devices || []).length,
+      },
+    },
+  });
 });
 
 // 版本校验与更新检查 (阅读 app 会通过浏览器弹窗访问 /version?id=5.65)

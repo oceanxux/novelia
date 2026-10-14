@@ -499,7 +499,15 @@ canvas#bg-canvas {
           </div>
         </div>
 
-        <button type="submit" class="submit-btn" id="btn-login-submit">
+        <div style="display:flex;align-items:center;justify-content:space-between;margin:10px 0 2px;">
+          <label style="display:inline-flex;align-items:center;gap:7px;cursor:pointer;font-size:13px;color:#cbd5e1;user-select:none;">
+            <input type="checkbox" id="login-remember" checked style="width:16px;height:16px;accent-color:#6366f1;cursor:pointer;border-radius:4px;">
+            <span>记住我 30 天</span>
+          </label>
+          <a href="forgot_password" style="font-size:13px;color:#a5b4fc;text-decoration:none;">忘记密码？</a>
+        </div>
+
+        <button type="submit" class="submit-btn" id="btn-login-submit" style="margin-top:16px;">
           <span>立即登录</span>
           <i class="fas fa-arrow-right"></i>
         </button>
@@ -507,7 +515,7 @@ canvas#bg-canvas {
 
       <div class="auth-links">
         <button type="button" onclick="switchMode('register')">没有账号？点击注册</button>
-        <a href="forgot_password">忘记密码</a>
+        <a href="/">返回首页</a>
       </div>
     </div>
 
@@ -895,22 +903,28 @@ document.getElementById('form-login').onsubmit = function(e) {
     return;
   }
 
+  const remember = document.getElementById('login-remember') ? document.getElementById('login-remember').checked : true;
   setButtonLoading(btn, true);
   const returnUrl = new URLSearchParams(window.location.search).get('return_url') || 'user_center';
 
   fetch('user_login', {
     method: 'POST',
     headers: { 'Content-Type': 'application/json' },
-    body: JSON.stringify({ action: 'login', email, password, return_url: returnUrl })
+    body: JSON.stringify({ action: 'login', email, password, return_url: returnUrl, remember })
   })
   .then(r => r.json())
   .then(res => {
     if (res.success) {
       localStorage.setItem('user_token', res.token);
       localStorage.setItem('user_info', JSON.stringify(res.user));
-      const exp = new Date();
-      exp.setTime(exp.getTime() + (30 * 24 * 60 * 60 * 1000));
-      document.cookie = `user_token=${res.token}; expires=${exp.toUTCString()}; path=/; SameSite=Lax`;
+      let cookieExpires = '';
+      if (remember) {
+        const exp = new Date();
+        exp.setTime(exp.getTime() + (30 * 24 * 60 * 60 * 1000));
+        cookieExpires = `; expires=${exp.toUTCString()}`;
+      }
+      document.cookie = `user_token=${res.token}${cookieExpires}; path=/; SameSite=Lax`;
+      document.cookie = `X-Novel-Token=${res.token}${cookieExpires}; path=/; SameSite=Lax`;
       showToast('登录成功，正在进入...', 'success');
       setTimeout(() => {
         window.location.href = res.redirect || 'user_center';

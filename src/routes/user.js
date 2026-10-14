@@ -149,6 +149,11 @@ router.get('/api/server_status', (req, res) => {
 
 // ---- 登出 ----
 router.post('/api/logout', (req, res) => {
+  const clearOpt = 'path=/; expires=Thu, 01 Jan 1970 00:00:00 UTC; SameSite=Lax';
+  res.setHeader('Set-Cookie', [
+    `user_token=; ${clearOpt}`,
+    `X-Novel-Token=; ${clearOpt}`,
+  ]);
   res.json({ success: true, message: '已退出登录' });
 });
 

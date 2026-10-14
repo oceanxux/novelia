@@ -70,6 +70,15 @@ router.post('/user_login', (req, res) => {
   if (user.password !== password) return res.json({ success: false, code: 1000, message: '密码错误' });
   user.last_use_at = Date.now();
   store.save();
+
+  const remember = body.remember !== false && body.remember !== 'false';
+  const maxAge = remember ? 30 * 24 * 60 * 60 * 1000 : 24 * 60 * 60 * 1000;
+  const cookieOpt = `path=/; Max-Age=${maxAge / 1000}; SameSite=Lax`;
+  res.setHeader('Set-Cookie', [
+    `user_token=${user.api_key}; ${cookieOpt}`,
+    `X-Novel-Token=${user.api_key}; ${cookieOpt}`,
+  ]);
+
   res.json({ success: true, token: user.api_key, user: publicUser(user), redirect: returnUrl });
 });
 
