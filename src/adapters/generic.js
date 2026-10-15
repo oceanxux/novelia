@@ -49,20 +49,20 @@ function createAdapter(cfg) {
   const headers = { 'User-Agent': DEFAULT_UA, ...(cfg.headers || {}) };
   const host = (() => { try { return new URL(base).hostname; } catch (e) { return ''; } })();
 
-  // Cloudflare 挑战站 (cfg.cf): 每次请求前确保有有效会话, 注入 UA + cf_clearance;
-  // 若响应仍是挑战页则失效重取一次。会话按 host 缓存, 仅在过期时开一次浏览器。
-  async function cfHeaders() {
-    return cfg.cf ? cfsession.headersFor(host, base) : {};
+  // Cloudflare 挑战站 (cfg.cf): 所有网络请求都交给 cfsession.fetchText。它会先走纯 HTTP,
+  // 只有响应确实是挑战页时才开浏览器过挑战; 若站点 WAF 按请求栈指纹判定 (如茶马),
+  // 则自动切到浏览器内 fetch。非 CF 源仍走普通 request, 零额外开销。
+  function cfReq(url, opts) {
+    return cfsession.fetchText(host, base, url, opts);
   }
   async function req(url, opts = {}) {
-    const h = { ...headers, ...(await cfHeaders()), ...(opts.headers || {}) };
-    let r = await request(url, { ...opts, headers: h });
-    if (cfg.cf && cfsession.isChallenge(r.text)) {
-      cfsession.invalidate(host);
-      const h2 = { ...headers, ...(await cfHeaders()), ...(opts.headers || {}) };
-      r = await request(url, { ...opts, headers: h2 });
-    }
-    return r;
+    if (cfg.cf) return cfReq(url, opts);
+    return request(url, { ...opts, headers: { ...headers, ...(opts.headers || {}) } });
+  }
+  // 传给站点专属 build 钩子 (catalog/content) 的请求器: CF 源走 cfReq, 其余走普通 request。
+  function ctxFetcher() {
+    if (!cfg.cf) return (url, opts = {}) => request(url, { ...opts, headers: { ...headers, ...(opts.headers || {}) } });
+    return (url, opts = {}) => cfReq(url, opts);
   }
 
   // 书籍页 URL 归一化: 有的站点搜索给 /xs-1.html, 详情/目录在 /xs-1/
@@ -137,8 +137,8 @@ function createAdapter(cfg) {
 
     // 站点专属目录构建钩子: 处理分页/JSONP/加密目录 (如 qb5)
     if (cfg.catalog.build) {
-      const ctxHeaders = { ...headers, ...(await cfHeaders()) };
-      const raw = await cfg.catalog.build({ $, html: $.html(), bookUrl, base, headers: ctxHeaders, abs });
+      const ctxHeaders = { ...headers };
+      const raw = await cfg.catalog.build({ $, html: $.html(), bookUrl, base, headers: ctxHeaders, fetch: ctxFetcher(), abs });
       return raw.map((c, i) => ({
         title: c.title || '', url: c.url || '', cid: i,
         tag: '', isVolume: false, isVip: false, isPay: false,
@@ -170,8 +170,8 @@ function createAdapter(cfg) {
 
     // 站点专属正文构建钩子: 处理两步取文/token 签名等 (如 得奇 ajax2.php)
     if (cfg.content.build) {
-      const ctxHeaders = { ...headers, ...(await cfHeaders()) };
-      const text = await cfg.content.build({ chapter, list, bookUrl: chapterParams.url, base, headers: ctxHeaders, abs });
+      const ctxHeaders = { ...headers };
+      const text = await cfg.content.build({ chapter, list, bookUrl: chapterParams.url, base, headers: ctxHeaders, fetch: ctxFetcher(), abs });
       return { content: String(text || ''), source: cfg.name, tab: 'novel', notice: null };
     }
 

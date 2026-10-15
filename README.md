@@ -46,7 +46,7 @@ docker run -d --name novelia -p 7001:7001 \
   ghcr.io/<owner>/<repo>:latest
 ```
 
-镜像基于 `node:20-alpine` (无原生依赖, 无需编译工具链), 以非 root 用户 `node` 运行, 内置健康检查 (`/version` 存活即视为健康)。
+镜像基于 `node:20-bookworm-slim` (CF 挑战源需要 patchright 驱动有头 Chromium, 而它不支持 alpine/musl; 容器内用 Xvfb 提供虚拟显示), 以非 root 用户 `node` 运行, 内置健康检查 (`/version` 存活即视为健康)。
 
 #### 方式三: 自建镜像
 
@@ -151,17 +151,25 @@ Novelia 书源 (Legado 用): `/book_source.json`、`/api/bs/search`、`/api/bs/d
 
 > 以上均为直连上游站点的独立实现。
 
-> **Cloudflare 挑战源 (半夏 / 茶马)**: 依赖可选包 `patchright` 与本机已安装的 Chrome。
+> **Cloudflare 挑战源 (半夏 / 茶马)**: 依赖可选包 `patchright` 与其自带 Chromium。
 > 站点在 CF 的 JS 挑战后纯 HTTP 拿不到内容, 由 `src/lib/cfsession.js` 用 patchright 驱动
-> 系统 Chrome 过一次挑战, 提取 `cf_clearance` + UA 按 host 缓存复用 (TTL 25 分钟);
-> 仅首次 / 过期时开一次浏览器, 之后同 IP 的纯 HTTP 请求即被放行。
-> 未安装 patchright 或系统无 Chrome 时, 这两个源会明确抛错, 不影响其他源。
-> 浏览器 profile 目录可用 `CF_PROFILE` 环境变量覆盖 (默认 `$TMPDIR/zld-cf-profile`)。
+> **有头** Chromium 过一次挑战, 提取 `cf_clearance` + UA 按 host 缓存复用 (TTL 25 分钟);
+> 仅首次 / 过期时开一次浏览器。
 >
-> 无头启动时 UA 会带 `HeadlessChrome` 标记, CF 据此直接判定为机器人, 挑战永远过不去;
-> 故启动前先探测本机 Chrome 真实版本, 用去掉该标记的同版本 UA 运行 (UA 版本必须与
-> 浏览器一致, 否则会因指纹不符被拒)。若站点回吐 `http://` 绝对链接而自身是 `https`,
-> 引擎会把同域链接升到 `https`, 否则 cf_clearance 不生效。
+> 三条硬性条件 (缺一挑战必失败):
+> 1. **有头模式**: 无头 Chromium 会被 CF 直接判定为机器人。容器内无显示器时用 Xvfb
+>    提供虚拟显示 (镜像已内置并自动启动; 也可设 `CF_HEADLESS=1` 强制无头, 但通常过不去)。
+> 2. **patchright 自带 Chromium**: 隐身补丁只作用于它, 系统 Chrome 不生效。需执行
+>    `npx patchright install chromium` (Docker 镜像已内置)。仅显式设置 `CHROME_BIN` 时才用系统浏览器。
+> 3. **不自定义 UA**: patchright 官方最佳实践, 自定义 UA 会与 TLS/JS 指纹不符而被拒。
+>
+> 过挑战后自动探测复用模式: `cf_clearance` 能被 Node 请求栈复用则走轻量 HTTP (如半夏);
+> 若站点 WAF 按请求栈指纹判定 (如茶马, Node 请求一律 403 "Attention Required"), 则
+> 保持浏览器会话, 所有请求在页面内 `fetch`。浏览器 profile 目录用 `CF_PROFILE` 覆盖
+> (默认 `$TMPDIR/zld-cf-profile`)。
+>
+> 未安装 patchright 或浏览器缺失时, 这两个源会明确抛错, 不影响其他源。若站点回吐
+> `http://` 绝对链接而自身是 `https`, 引擎会把同域链接升到 `https`, 否则 cf_clearance 不生效。
 
 ## 新增适配器
 

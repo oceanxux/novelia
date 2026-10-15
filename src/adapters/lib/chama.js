@@ -18,9 +18,11 @@ function build({ $, base, abs }) {
   return out;
 }
 
-// 正文: 取 #novel-content 的段落, 剥掉广告/脚本节点
-async function contentBuild({ chapter, headers }) {
-  const r = await request(chapter.url, { headers });
+// 正文: 取 #novel-content 的段落, 剥掉广告/脚本节点。
+// 茶马的 CF WAF 按请求栈指纹判定, Node 请求一律 403, 必须走 fetch (浏览器内请求通道)。
+async function contentBuild({ chapter, headers, fetch: fetchFn }) {
+  const doFetch = fetchFn || ((url, opts) => request(url, opts));
+  const r = await doFetch(chapter.url, { headers });
   const $ = cheerio.load(r.text);
   const $c = $('#novel-content');
   $c.find('script,style,ins,iframe,.google-auto-placed,[class*=adsbygoogle],[class*=ap_container]').remove();
