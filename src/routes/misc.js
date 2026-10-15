@@ -1,7 +1,6 @@
 'use strict';
 // 杂项端点: /login /version /api/get_config
 const express = require('express');
-const auth = require('../middleware/auth');
 const adapters = require('../adapters');
 const store = require('../adapters/store');
 
@@ -10,6 +9,7 @@ const router = express.Router();
 // 登录 / 查询: form-encoded 或 JSON, 返回 { code, data: { user, device } }
 // 兼容 Legado 手机书源中 source.getLoginInfoMap() -> /login 以及 get_user() -> /login(key) 契约
 const userstore = require('../lib/userstore');
+const devices = require('../lib/devices');
 router.post('/login', (req, res) => {
   const key = String(req.body.key || '').trim();
   if (key) {
@@ -17,6 +17,10 @@ router.post('/login', (req, res) => {
     try { rawKey = Buffer.from(key, 'base64').toString('utf8'); } catch (e) {}
     const user = userstore.findByKey(rawKey) || userstore.findByKey(key);
     if (!user) return res.json({ success: false, code: 1003, message: '密钥无效或用户不存在' });
+    // 书源带设备号时按设备号登记, 保证同一台机器不重复计数
+    const dev = devices.touch(user, req, String(req.body.device_id || '').trim());
+    devices.refreshOnline(user);
+    userstore.save();
     return res.json({
       success: true,
       code: 200,
@@ -29,10 +33,17 @@ router.post('/login', (req, res) => {
           status: user.disabled ? '封禁' : (user.is_member ? '会员' : '正常'),
         },
         device: {
-          id: (user.devices && user.devices[0] && user.devices[0].id) || 'dev_' + user.api_key.slice(0, 8),
-          online_count: 1,
+          id: dev ? dev.id : 'dev_' + user.api_key.slice(0, 8),
+          online_count: (user.devices || []).filter((d) => d.online).length,
           device_limit: 5,
           total_count: (user.devices || []).length,
+          list: (user.devices || []).map((d) => ({
+            device_id: d.id,
+            name: d.name,
+            ip_address: d.ip || '',
+            is_online: !!d.online,
+            last_active: d.last_active_text || '',
+          })),
         },
       },
     });
@@ -47,6 +58,8 @@ router.post('/login', (req, res) => {
   if (user.password !== password) return res.json({ success: false, code: 1000, message: '密码错误' });
 
   user.last_use_at = Date.now();
+  const dev = devices.touch(user, req, String(req.body.device_id || '').trim());
+  devices.refreshOnline(user);
   userstore.save();
 
   // 设置 Cookie (30天)，供 Legado CookieJar 与 WebView 跨域复用
@@ -68,10 +81,17 @@ router.post('/login', (req, res) => {
         is_member: !!user.is_member,
       },
       device: {
-        id: (user.devices && user.devices[0] && user.devices[0].id) || 'dev_' + user.api_key.slice(0, 8),
-        online_count: 1,
+        id: dev ? dev.id : 'dev_' + user.api_key.slice(0, 8),
+        online_count: (user.devices || []).filter((d) => d.online).length,
         device_limit: 5,
         total_count: (user.devices || []).length,
+        list: (user.devices || []).map((d) => ({
+          device_id: d.id,
+          name: d.name,
+          ip_address: d.ip || '',
+          is_online: !!d.online,
+          last_active: d.last_active_text || '',
+        })),
       },
     },
   });

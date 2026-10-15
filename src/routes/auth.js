@@ -9,6 +9,8 @@ const path = require('path');
 const express = require('express');
 const store = require('../lib/userstore');
 const sysconfig = require('../lib/sysconfig');
+const devices = require('../lib/devices');
+const upload = require('../middleware/upload');
 
 const router = express.Router();
 const PUBLIC = path.join(__dirname, '..', '..', 'public');
@@ -69,6 +71,8 @@ router.post('/user_login', (req, res) => {
   if (user.disabled) return res.json({ success: false, code: 1004, message: '该账号已被禁用，请联系管理员' });
   if (user.password !== password) return res.json({ success: false, code: 1000, message: '密码错误' });
   user.last_use_at = Date.now();
+  devices.touch(user, req);
+  devices.refreshOnline(user);
   store.save();
 
   const remember = body.remember !== false && body.remember !== 'false';
@@ -83,7 +87,7 @@ router.post('/user_login', (req, res) => {
 });
 
 // ---- 注册 ----
-router.post('/register_api', (req, res) => {
+router.post('/register_api', upload, (req, res) => {
   if (!sysconfig.get().allow_register) {
     return res.json({ success: false, message: '系统当前已关闭自主注册功能，请联系管理员分配账户' });
   }

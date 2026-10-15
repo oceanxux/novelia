@@ -10,6 +10,8 @@ const express = require('express');
 const store = require('../lib/userstore');
 const metrics = require('../lib/metrics');
 const redeemcodes = require('../lib/redeemcodes');
+const devices = require('../lib/devices');
+const upload = require('../middleware/upload');
 
 const router = express.Router();
 const TPL = path.join(__dirname, '..', '..', 'public', 'user_center.html');
@@ -104,7 +106,8 @@ function renderDevices(user) {
 function renderPage(user) {
   let html = fs.readFileSync(TPL, 'utf8');
   const isMember = !!user.is_member;
-  const devices = user.devices || [];
+  devices.refreshOnline(user);
+  const devices_ = user.devices || [];
   const vars = {
     API_KEY: esc(user.api_key),
     API_KEY_MASKED: esc(maskKey(user.api_key)),
@@ -117,8 +120,8 @@ function renderPage(user) {
     BADGE_TEXT: isMember ? '会员' : '普通用户',
     STAT_ONLINE: String(user.stat_online || 0),
     STAT_TODAY: String(user.stat_today || 0),
-    STAT_DEVICES: String(devices.length),
-    STAT_STATUS: String(devices.filter((d) => d.online).length),
+    STAT_DEVICES: String(devices_.length),
+    STAT_STATUS: String(devices_.filter((d) => d.online).length),
     REGISTERED: fmtDate(user.created_at),
     LAST_USE: user.last_use_at ? fmtDate(user.last_use_at) : '从未',
     DEVICES_HTML: renderDevices(user),
@@ -137,6 +140,9 @@ function sendPage(req, res) {
   if (!user) {
     return res.redirect('/user_login?error=' + encodeURIComponent('未登录或登录已过期，请先登录账号'));
   }
+  // 打开用户中心即登记一次设备, 使"设备"统计反映真实使用
+  devices.touch(user, req);
+  store.save();
   res.type('html').send(renderPage(user));
 }
 router.get('/user_center', sendPage);
@@ -158,7 +164,7 @@ router.post('/api/logout', (req, res) => {
 });
 
 // ---- 动作分发 ----
-router.post('/user_center', (req, res) => {
+router.post('/user_center', upload, (req, res) => {
   const user = resolveUser(req);
   if (!user) return res.json({ success: false, message: '未登录或凭证无效' });
   user.last_use_at = Date.now();

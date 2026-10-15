@@ -3,15 +3,11 @@
 const express = require('express');
 const path = require('path');
 const fs = require('fs');
-const multer = require('multer');
 const metrics = require('./lib/metrics');
 
 const app = express();
 app.use(express.json({ limit: '2mb' }));
 app.use(express.urlencoded({ extended: true, limit: '2mb' }));
-// multipart/form-data (头像上传 + 表单 FormData): 内存存储, 字段进 req.body
-const upload = multer({ storage: multer.memoryStorage(), limits: { fileSize: 5 * 1024 * 1024 } });
-app.use(upload.any());
 
 // 统一响应头 (前端不强制, 便于调试)
 app.use((req, res, next) => {
