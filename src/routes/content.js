@@ -5,6 +5,7 @@
 const express = require('express');
 const adapters = require('../adapters');
 const auth = require('../middleware/auth');
+const { normalizeBookParams } = require('../lib/bookurl');
 
 const router = express.Router();
 
@@ -14,8 +15,12 @@ router.post('/content', auth.required, async (req, res) => {
   if (!adapter) {
     return res.status(400).json({ code: 400, message: '未知来源', data: { content: '未知来源: ' + (params.source || '未指定') } });
   }
+  // url 可能来自旧书架的 base64 记录; 其余章节参数 (cid/itemId/token 等) 原样透传
+  const p = normalizeBookParams(params);
+  const args = { ...params, url: p.url };
+  if (p.bookid) args.bookid = args.bookid || p.bookid;
   try {
-    const data = await adapter.content(params);
+    const data = await adapter.content(args);
     if (!data || data.content == null) {
       return res.json({ code: 200, message: '请求成功', data: { content: '暂无正文内容或已被下架', ...(data || {}) } });
     }

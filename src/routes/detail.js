@@ -4,6 +4,7 @@
 // 响应包裹: { code, message, data: Book }  (对齐原站)
 const express = require('express');
 const adapters = require('../adapters');
+const { normalizeBookParams } = require('../lib/bookurl');
 
 const router = express.Router();
 
@@ -19,8 +20,9 @@ router.post('/details', async (req, res) => {
   }
   const adapter = pickAdapter(source);
   if (!adapter) return res.status(400).json({ code: 400, message: '未知来源', data: null });
+  const p = normalizeBookParams({ url, bookid });
   try {
-    const data = await adapter.detail({ url, bookid });
+    const data = await adapter.detail({ url: p.url, bookid: p.bookid });
     res.json({ code: 200, message: '请求成功', data });
   } catch (e) {
     res.status(500).json({ code: 500, message: String(e.message || e), data: null });

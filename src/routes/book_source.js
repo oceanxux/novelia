@@ -8,6 +8,7 @@
 const express = require('express');
 const adapters = require('../adapters');
 const bookpool = require('../lib/bookpool');
+const { normalizeBookParams } = require('../lib/bookurl');
 
 const router = express.Router();
 
@@ -43,8 +44,7 @@ router.get('/api/bs/search', async (req, res) => {
 router.get('/api/bs/detail', async (req, res) => {
   const base = baseUrl(req);
   const source = String(req.query.source || '');
-  const url = String(req.query.url || '');
-  const bookid = String(req.query.bookid || '');
+  const { url, bookid } = normalizeBookParams({ url: req.query.url, bookid: req.query.bookid });
   const adapter = adapters.get(source);
   if (!adapter) return res.status(400).json({ code: 400, message: '未知来源', data: null });
   try {
@@ -84,8 +84,7 @@ router.get('/api/bs/detail', async (req, res) => {
 // 正文
 router.get('/api/bs/content', async (req, res) => {
   const source = String(req.query.source || '');
-  const url = String(req.query.url || '');
-  const bookid = String(req.query.bookid || '');
+  const { url, bookid } = normalizeBookParams({ url: req.query.url, bookid: req.query.bookid });
   const cid = Number(req.query.cid) || 0;
   const adapter = adapters.get(source);
   if (!adapter) return res.status(400).json({ code: 400, message: '未知来源', data: null });
@@ -235,6 +234,23 @@ rawChapterList.map((x) => {`;
     const safeFetchCode = 'let response=null;try{response=JSON.parse(java.ajax(chapterUrl));}catch(e){};let finalResult=(response&&response.data&&response.data.content!=null)?response.data.content:(response&&response.message?response.message:"正文获取失败，请重试或检查登录状态");';
     if (rawContent.includes(oldFetchCode)) {
       src.ruleContent.content = rawContent.replace(oldFetchCode, safeFetchCode);
+    }
+  }
+
+  // 6. 详情接口容错: /details 失败时后端回 data:null, 模板里 `response.data.tab` 会直接抛
+  //    Rhino TypeError (无法读取 null 的属性 "tab"), 导致书籍对象构造中断, 表现为
+  //    "初始化失败 / 章节列表为空 / 换源错误"。改为空安全访问。
+  if (src.ruleBookInfo && src.ruleBookInfo.init) {
+    const rawInit = src.ruleBookInfo.init;
+    const oldDeref = 'let response = JSON.parse(result);\n    if (response.data.tab == "download") {';
+    const safeDeref = 'let response = null;\n    try { response = JSON.parse(result); } catch (e) {}\n    if (response && response.data && response.data.tab == "download") {';
+    if (rawInit.includes(oldDeref)) {
+      src.ruleBookInfo.init = rawInit.replace(oldDeref, safeDeref);
+    } else {
+      src.ruleBookInfo.init = rawInit.replace(
+        'if (response.data.tab == "download") {',
+        'if (response && response.data && response.data.tab == "download") {'
+      );
     }
   }
 
