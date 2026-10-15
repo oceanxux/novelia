@@ -10,6 +10,35 @@ const router = express.Router();
 // 兼容 Legado 手机书源中 source.getLoginInfoMap() -> /login 以及 get_user() -> /login(key) 契约
 const userstore = require('../lib/userstore');
 const devices = require('../lib/devices');
+const sysconfig = require('../lib/sysconfig');
+
+// 按用户身份取当前允许的在线设备数 (0 为无限制)
+function deviceLimitFor(user) {
+  const cfg = sysconfig.get();
+  return user.is_member ? (cfg.max_devices_member ?? 3) : (cfg.max_devices_normal ?? 1);
+}
+
+// 组装 /login 响应的 device 段 (登录与查询共用)
+function buildDevicePayload(user, dev) {
+  const limit = deviceLimitFor(user);
+  return {
+    id: dev ? dev.id : '',
+    device_id: dev ? dev.id : '',
+    name: dev ? dev.name : '',
+    online_count: (user.devices || []).filter((d) => d.online).length,
+    device_limit: limit,
+    total_count: (user.devices || []).length,
+    list: (user.devices || []).map((d) => ({
+      device_id: d.id,
+      name: d.name,
+      device_name: d.name,
+      ip_address: d.ip || '',
+      is_online: !!d.online,
+      last_active: d.last_active_text || '',
+    })),
+  };
+}
+
 router.post('/login', (req, res) => {
   const key = String(req.body.key || '').trim();
   if (key) {
@@ -17,7 +46,7 @@ router.post('/login', (req, res) => {
     try { rawKey = Buffer.from(key, 'base64').toString('utf8'); } catch (e) {}
     const user = userstore.findByKey(rawKey) || userstore.findByKey(key);
     if (!user) return res.json({ success: false, code: 1003, message: '密钥无效或用户不存在' });
-    // 书源带设备号时按设备号登记, 保证同一台机器不重复计数
+    // 书源带设备码时按设备码登记 (浏览器无设备码不登记)
     const dev = devices.touch(user, req, String(req.body.device_id || '').trim());
     devices.refreshOnline(user);
     userstore.save();
@@ -32,19 +61,7 @@ router.post('/login', (req, res) => {
           is_member: !!user.is_member,
           status: user.disabled ? '封禁' : (user.is_member ? '会员' : '正常'),
         },
-        device: {
-          id: dev ? dev.id : 'dev_' + user.api_key.slice(0, 8),
-          online_count: (user.devices || []).filter((d) => d.online).length,
-          device_limit: 5,
-          total_count: (user.devices || []).length,
-          list: (user.devices || []).map((d) => ({
-            device_id: d.id,
-            name: d.name,
-            ip_address: d.ip || '',
-            is_online: !!d.online,
-            last_active: d.last_active_text || '',
-          })),
-        },
+        device: buildDevicePayload(user, dev),
       },
     });
   }
@@ -80,19 +97,7 @@ router.post('/login', (req, res) => {
         api_key: user.api_key,
         is_member: !!user.is_member,
       },
-      device: {
-        id: dev ? dev.id : 'dev_' + user.api_key.slice(0, 8),
-        online_count: (user.devices || []).filter((d) => d.online).length,
-        device_limit: 5,
-        total_count: (user.devices || []).length,
-        list: (user.devices || []).map((d) => ({
-          device_id: d.id,
-          name: d.name,
-          ip_address: d.ip || '',
-          is_online: !!d.online,
-          last_active: d.last_active_text || '',
-        })),
-      },
+      device: buildDevicePayload(user, dev),
     },
   });
 });

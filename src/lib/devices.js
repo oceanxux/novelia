@@ -1,7 +1,7 @@
 'use strict';
-// 设备登记: 用户每次登录/带凭证访问时记录设备, 供用户中心展示与远程下线。
-// 设备身份优先取书源在请求头里带的稳定设备号 (Legado java.deviceID/androidId),
-// 没有则按 UA 指纹生成, 同一台机器重复登录只会刷新最后活跃时间, 不会重复计数。
+// 设备登记: 仅当客户端带稳定设备码 (阅读 App / 书源请求头 X-Device-Id) 时记录设备,
+// 供用户中心展示与远程下线。浏览器网页登录/访问不带设备码, 不计入设备。
+// 同一设备码重复请求只刷新最后活跃时间, 不会重复计数。
 const crypto = require('crypto');
 
 const ONLINE_TTL = 15 * 60 * 1000; // 15 分钟内有请求视为在线
@@ -43,13 +43,19 @@ function parseDeviceIcon(ua) {
   return 'tablet-alt';
 }
 
+// 设备码来源: 优先显式传入 (登录体 device_id), 其次请求头 X-Device-Id / device-id。
+// 均无则返回 null —— 浏览器网页登录/访问不带设备码, 不登记设备。
 function fingerprint(req, explicitId) {
   const headerId = String(explicitId || req.get('x-device-id') || req.get('device-id') || '').trim();
-  if (headerId) return 'dev_' + crypto.createHash('sha1').update(headerId).digest('hex').slice(0, 12);
-  const ua = String(req.get('user-agent') || '').trim();
-  // 仅用 UA 生成指纹，避免移动蜂窝网络 IP 频繁漂移导致重复产生多个设备条目
-  if (ua) return 'dev_' + crypto.createHash('sha1').update(ua).digest('hex').slice(0, 12);
-  return 'dev_' + crypto.createHash('sha1').update(clientIp(req)).digest('hex').slice(0, 12);
+  if (!headerId) return null;
+  return 'dev_' + crypto.createHash('sha1').update(headerId).digest('hex').slice(0, 12);
+}
+
+// 设备码展示用掩码: 首 4 位 + **** + 末 4 位
+function maskDeviceId(id) {
+  const s = String(id || '').replace(/^dev_/, '');
+  if (s.length <= 8) return s || '未知';
+  return s.slice(0, 4) + '****' + s.slice(-4);
 }
 
 function relTime(ts) {
@@ -64,11 +70,12 @@ function relTime(ts) {
 
 const sysconfig = require('./sysconfig');
 
-// 登记/刷新一台设备; 返回该设备记录
+// 登记/刷新一台设备; 返回该设备记录。无设备码 (浏览器访问) 返回 null, 不登记。
 function touch(user, req, explicitId) {
   if (!user) return null;
-  user.devices = user.devices || [];
   const id = fingerprint(req, explicitId);
+  if (!id) return null; // 无设备码: 浏览器登录/访问不产生设备记录
+  user.devices = user.devices || [];
   const ua = req.get('user-agent') || '';
   const now = Date.now();
   let dev = user.devices.find((d) => d.id === id);
@@ -85,6 +92,7 @@ function touch(user, req, explicitId) {
     dev.icon = parseDeviceIcon(ua);
   }
   dev.online = true;
+  dev.kicked = false; // 该设备重新活跃, 清除被顶下线标记
   dev.last_active_at = now;
   dev.last_active_text = relTime(now);
   dev.ip = clientIp(req);
@@ -98,11 +106,15 @@ function touch(user, req, explicitId) {
   const maxOnline = user.is_member ? (cfg.max_devices_member ?? 3) : (cfg.max_devices_normal ?? 1);
   if (maxOnline > 0) {
     const onlineDevs = user.devices.filter((d) => d.online && d.id !== dev.id);
-    // 按最后活跃时间升序排序，最久未活跃的优先下线
+    // 按最后活跃时间升序排序，最久未活跃的优先顶下线
     onlineDevs.sort((a, b) => (a.last_active_at || 0) - (b.last_active_at || 0));
     while (onlineDevs.length >= maxOnline) {
       const oldest = onlineDevs.shift();
-      if (oldest) oldest.online = false;
+      if (oldest) {
+        oldest.online = false;
+        oldest.kicked = true; // 标记被顶下线, 防止仅凭 last_active_at 被 refreshOnline 复活
+        oldest.last_active_text = relTime(oldest.last_active_at);
+      }
     }
   }
 
@@ -110,12 +122,17 @@ function touch(user, req, explicitId) {
 }
 
 // 读取时刷新在线态 (不需要写盘): 超过 ONLINE_TTL 未活跃即视为离线
+// 被强制下线/顶下线的设备 (kicked) 在重新活跃前保持离线
 function refreshOnline(user) {
   const now = Date.now();
   for (const d of (user && user.devices) || []) {
-    d.online = !!d.last_active_at && now - d.last_active_at < ONLINE_TTL;
+    if (d.kicked) {
+      d.online = false;
+    } else {
+      d.online = !!d.last_active_at && now - d.last_active_at < ONLINE_TTL;
+    }
     d.last_active_text = relTime(d.last_active_at);
   }
 }
 
-module.exports = { touch, refreshOnline, fingerprint, clientIp, deviceName: parseDeviceName, relTime, ONLINE_TTL, MAX_DEVICES };
+module.exports = { touch, refreshOnline, fingerprint, maskDeviceId, clientIp, deviceName: parseDeviceName, relTime, ONLINE_TTL, MAX_DEVICES };

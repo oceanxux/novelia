@@ -6,6 +6,7 @@
 //   GET  /forgot_password(.php)    忘记密码页
 //   POST /forgot_password          重置密码 (JSON: send_reset_code / reset_password)
 const path = require('path');
+const fs = require('fs');
 const express = require('express');
 const store = require('../lib/userstore');
 const sysconfig = require('../lib/sysconfig');
@@ -50,7 +51,14 @@ function publicUser(u) {
 }
 
 // ---- 登录 / 注册页 ----
-function sendLogin(req, res) { res.sendFile(path.join(PUBLIC, 'user_login.html')); }
+// 服务端按注册开关预渲染 body 类名, 关闭注册时首屏即隐藏注册入口, 避免闪现
+function sendLogin(req, res) {
+  const allow = sysconfig.get().allow_register;
+  fs.readFile(path.join(PUBLIC, 'user_login.html'), 'utf8', (err, html) => {
+    if (err) return res.status(500).send('login page missing');
+    res.type('html').send(html.replace('__NO_REGISTER_CLASS__', allow ? '' : 'no-register'));
+  });
+}
 router.get('/user_login', sendLogin);
 router.get('/user_login.php', sendLogin);
 

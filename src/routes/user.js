@@ -82,19 +82,20 @@ function resolveUser(req) {
 }
 
 function renderDevices(user) {
-  const devices = user.devices || [];
-  if (!devices.length) {
-    return '<div class="empty-state"><i class="fas fa-mobile-alt"></i><h5>暂无设备</h5><p class="text-muted">登录使用后设备将自动记录</p></div>';
+  const list = user.devices || [];
+  if (!list.length) {
+    return '<div class="empty-state"><i class="fas fa-mobile-alt"></i><h5>暂无设备</h5><p class="text-muted">在阅读 App 中登录后设备将自动记录</p></div>';
   }
-  return devices.map((d) => {
+  return list.map((d) => {
     const online = !!d.online;
     const ipStr = d.ip ? ` · IP: ${esc(d.ip)}` : '';
     const platformStr = d.platform && d.platform !== d.name ? ` (${esc(d.platform)})` : '';
+    const codeStr = `<span><i class="fas fa-id-card"></i> ${esc(devices.maskDeviceId(d.id))}</span>`;
     return `<div class="device-item" data-device-id="${esc(d.id)}">
         <div class="device-icon"><i class="fas fa-${d.icon || 'mobile-alt'}"></i><span class="device-dot ${online ? 'online' : 'offline'}"></span></div>
         <div class="device-info">
             <div class="device-name"><span class="device-name-text">${esc(d.name || '未命名设备')}</span><span class="text-muted" style="font-size:0.75rem;font-weight:400;">${platformStr}</span></div>
-            <div class="device-meta">${online ? '<span style="color:var(--success);font-weight:600;">在线</span>' : '离线'} · 最后活跃 ${esc(d.last_active_text || '未知')}${ipStr}</div>
+            <div class="device-meta">${codeStr}${ipStr} · ${online ? '<span style="color:var(--success);font-weight:600;">在线</span>' : '离线'} · 最后活跃 ${esc(d.last_active_text || '未知')}</div>
         </div>
         <div class="device-actions">
             <button class="btn btn-sm rename-device-btn" data-device-id="${esc(d.id)}" data-device-name="${esc(d.name || '')}" title="重命名"><i class="fas fa-pen"></i></button>
@@ -111,9 +112,9 @@ function renderPage(user) {
   devices.refreshOnline(user);
   const devices_ = user.devices || [];
   const cfg = require('../lib/sysconfig').get();
-  const normalLimitStr = (cfg.max_devices_normal === 0) ? '不限' : `${cfg.max_devices_normal} 台`;
-  const memberLimitStr = (cfg.max_devices_member === 0) ? '不限' : `${cfg.max_devices_member} 台`;
-  const deviceLimitTip = `普通用户限 ${normalLimitStr} 设备在线，会员限 ${memberLimitStr} 设备在线`;
+  const normalLimitStr = (cfg.max_devices_normal === 0) ? '不限台数' : `${cfg.max_devices_normal} 台`;
+  const memberLimitStr = (cfg.max_devices_member === 0) ? '不限台数' : `${cfg.max_devices_member} 台`;
+  const deviceLimitTip = `普通用户限 ${normalLimitStr}设备在线，会员限 ${memberLimitStr}设备在线`;
 
   const vars = {
     API_KEY: esc(user.api_key),
@@ -230,6 +231,7 @@ router.post('/user_center', upload, (req, res) => {
       const dev = (user.devices || []).find((d) => d.id === id);
       if (!dev) return res.json({ success: false, message: '设备不存在' });
       dev.online = false;
+      dev.kicked = true; // 标记强制下线, 该设备下次活跃前保持离线
       dev.last_active_text = '刚刚';
       store.save();
       return res.json({ success: true, message: '设备已强制下线' });

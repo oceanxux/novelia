@@ -168,6 +168,12 @@ canvas#bg-canvas {
   box-shadow: 0 2px 8px rgba(0,0,0,0.25);
 }
 
+/* 注册关闭时, 首屏 (JS 执行前) 即隐藏注册入口, 避免闪烁 */
+body.no-register #btn-tab-reg,
+body.no-register .reg-entry { display: none !important; }
+/* 注册关闭后仅剩"登录"一个标签, 整行标签无意义, 一并隐藏 */
+body.no-register .tab-pills { display: none !important; }
+
 /* 表单与输入框设计 */
 .form-group {
   margin-bottom: 18px;
@@ -451,7 +457,7 @@ canvas#bg-canvas {
 }
 </style>
 </head>
-<body>
+<body class="__NO_REGISTER_CLASS__">
 
 <canvas id="bg-canvas"></canvas>
 <div class="glow-orb glow-orb-1"></div>
@@ -514,7 +520,7 @@ canvas#bg-canvas {
       </form>
 
       <div class="auth-links">
-        <button type="button" onclick="switchMode('register')">没有账号？点击注册</button>
+        <button type="button" class="reg-entry" onclick="switchMode('register')">没有账号？点击注册</button>
         <a href="/">返回首页</a>
       </div>
     </div>
@@ -560,7 +566,7 @@ canvas#bg-canvas {
       </form>
 
       <div class="auth-links">
-        <button type="button" onclick="switchMode('login')">已有账号？返回登录</button>
+        <button type="button" class="reg-entry" onclick="switchMode('login')">已有账号？返回登录</button>
         <a href="/">返回首页</a>
       </div>
     </div>
