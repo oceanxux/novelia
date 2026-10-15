@@ -277,15 +277,78 @@ router.get('/api/get_featured_booklists', async (req, res) => {
 });
 
 // ---- 图片代理 (仅允许 http/https) ----
-router.get('/proxy_image', (req, res) => {
+// 仅允许代理公网 http(s) 图片: 拒绝环回/私网/链路本地/保留地址, 不跟随重定向
+// (不校验重定向目标等同于绕过过滤), 并且把校验过的 IP 直接交给连接, 避免
+// 校验与连接之间再次解析被 DNS 重绑定利用。防止被当作内网探测/内网内容读取的跳板。
+const net = require('net');
+const dns = require('dns');
+
+function isBlockedIPv4(ip) {
+  const p = ip.split('.').map(Number);
+  if (p.length !== 4 || p.some((n) => !Number.isInteger(n) || n < 0 || n > 255)) return true;
+  const [a, b] = p;
+  if (a === 0 || a === 10 || a === 127) return true;          // 本机 / 私网 / 未指定
+  if (a === 100 && b >= 64 && b <= 127) return true;          // CGNAT
+  if (a === 169 && b === 254) return true;                    // 链路本地 (云元数据)
+  if (a === 172 && b >= 16 && b <= 31) return true;           // 私网
+  if (a === 192 && b === 168) return true;                    // 私网
+  if (a >= 224) return true;                                  // 组播 / 保留 / 广播
+  return false;
+}
+
+function isBlockedIPv6(ip) {
+  const s = ip.toLowerCase().split('%')[0];
+  if (s === '::' || s === '::1') return true;
+  if (s.startsWith('fe80') || s.startsWith('fec0')) return true;            // 链路本地 / 站点本地
+  if (/^f[cd]/.test(s)) return true;                                        // 唯一本地地址
+  const v4 = s.match(/^::ffff:(\d+\.\d+\.\d+\.\d+)$/);                      // IPv4 映射
+  if (v4) return isBlockedIPv4(v4[1]);
+  return false;
+}
+
+function isBlockedAddress(ip) {
+  if (!ip) return true;
+  return net.isIPv6(ip) ? isBlockedIPv6(ip) : isBlockedIPv4(ip);
+}
+
+// 解析域名, 返回一个已确认公网的地址; 无可用地址则返回 null
+function resolvePublic(hostname) {
+  return new Promise((resolve) => {
+    if (net.isIP(hostname)) return resolve(isBlockedAddress(hostname) ? null : { address: hostname, family: net.isIPv6(hostname) ? 6 : 4 });
+    dns.lookup(hostname, { all: true }, (err, addrs) => {
+      if (err || !addrs || !addrs.length) return resolve(null);
+      resolve(addrs.find((a) => !isBlockedAddress(a.address)) || null);
+    });
+  });
+}
+
+router.get('/proxy_image', async (req, res) => {
   const raw = String(req.query.url || '');
   let target;
   try { target = new URL(raw); } catch (e) { return res.status(400).send('bad url'); }
   if (target.protocol !== 'http:' && target.protocol !== 'https:') return res.status(400).send('bad protocol');
+  const addr = await resolvePublic(target.hostname);
+  if (!addr) return res.status(403).send('forbidden host');
+
   const lib = target.protocol === 'https:' ? https : http;
-  const proxyReq = lib.get(target, { headers: { 'User-Agent': 'Mozilla/5.0', Referer: target.origin + '/' }, timeout: 8000 }, (r) => {
-    if (r.statusCode >= 300 && r.statusCode < 400 && r.headers.location) {
-      return res.redirect(r.headers.location);
+  const opts = {
+    headers: { 'User-Agent': 'Mozilla/5.0', Referer: target.origin + '/' },
+    timeout: 8000,
+    // 连接已校验过的地址; Host/SNI 仍用原域名。
+    // Node 20+ 的 autoSelectFamily 会以 { all: true } 调用 lookup, 回调形态不同。
+    lookup: (host, o, cb) => {
+      if (o && o.all) return cb(null, [addr]);
+      return cb(null, addr.address, addr.family);
+    },
+  };
+  if (target.port) opts.port = target.port;
+  opts.host = target.hostname;
+  opts.path = target.pathname + target.search;
+
+  const proxyReq = lib.get(opts, (r) => {
+    if (r.statusCode >= 300 && r.statusCode < 400) {
+      r.resume();
+      return res.status(502).send('upstream redirect');
     }
     if (r.statusCode !== 200) { r.resume(); return res.status(502).send('upstream error'); }
     res.set('Content-Type', r.headers['content-type'] || 'image/jpeg');

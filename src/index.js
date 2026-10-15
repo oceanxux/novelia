@@ -33,7 +33,17 @@ function sendAdminPage(file) {
     });
   };
 }
-app.get('/debug', sendAdminPage('debug.html'));
+// 发现页是公开页面, 其中的后台入口链接必须回退到默认 /admin,
+// 否则任何访客都能从 /debug 读出隐藏的 ADMIN_PATH, 隐藏入口即失效。
+function sendPublicPage(file) {
+  return (req, res) => {
+    fs.readFile(path.join(__dirname, '..', 'public', file), 'utf8', (err, html) => {
+      if (err) return res.status(500).send('admin page missing');
+      res.type('html').send(html.replace(/__ADMIN_PATH__/g, '/admin'));
+    });
+  };
+}
+app.get('/debug', sendPublicPage('debug.html'));
 app.get(ADMIN_PATH, sendAdminPage('admin.html'));
 app.get(ADMIN_PATH + '/accounts', sendAdminPage('admin_accounts.html'));
 

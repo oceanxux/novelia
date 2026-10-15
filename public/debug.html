@@ -219,7 +219,7 @@ async function doSearch() {
     document.querySelectorAll('.bookrow').forEach((el) => el.onclick = () => openBook(data[+el.dataset.i], el));
     st(`搜索成功: ${data.length} 条`, 'ok');
     topst(`搜索成功 · ${data.length} 条`);
-  } catch (e) { st('搜索失败: ' + e.message, 'err'); }
+  } catch (e) { st('搜索失败: ' + esc(e.message), 'err'); }
   finally { $('#go').disabled = false; }
 }
 
@@ -269,7 +269,7 @@ async function openBook(book, el) {
       <div class="toc">${c.data.map((ch, i) => `<a href="#" data-i="${i}">${esc(ch.title)}</a>`).join('')}</div>`;
     document.querySelectorAll('.toc a').forEach((a) => a.onclick = (e) => { e.preventDefault(); readChapter(+a.dataset.i); });
     st(`目录加载完成: ${c.data.length} 章`, 'ok');
-  } catch (e) { $('#detail').innerHTML = `<div class="empty" style="color:var(--err)">加载失败: ${esc(e.message)}</div>`; st('失败: ' + e.message, 'err'); }
+  } catch (e) { $('#detail').innerHTML = `<div class="empty" style="color:var(--err)">加载失败: ${esc(e.message)}</div>`; st('失败: ' + esc(e.message), 'err'); }
 }
 
 async function readChapter(idx) {
@@ -288,11 +288,11 @@ async function readChapter(idx) {
       body: JSON.stringify({ cid: ch.cid, source: info.source, url: info.book_url, bookid: info.bookid }),
     }).then((r) => r.json());
     if (!r.success) throw new Error(r.message || '正文加载失败');
-    const html = r.content || '';
+    const html = esc(r.content || '');
     $('#rcontent').innerHTML = html || '<div class="empty">(空正文)</div>';
     document.querySelector('.rbody').scrollTop = 0;
-    st(`正文: ${ch.title} · ${html.length} 字符`, 'ok');
-  } catch (e) { $('#rcontent').innerHTML = `<div class="empty" style="color:var(--err)">正文加载失败: ${esc(e.message)}</div>`; st('正文失败: ' + e.message, 'err'); }
+    st(`正文: ${esc(ch.title)} · ${html.length} 字符`, 'ok');
+  } catch (e) { $('#rcontent').innerHTML = `<div class="empty" style="color:var(--err)">正文加载失败: ${esc(e.message)}</div>`; st('正文失败: ' + esc(e.message), 'err'); }
 }
 
 $('#go').onclick = doSearch;

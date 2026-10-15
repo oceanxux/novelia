@@ -38,8 +38,8 @@ function updateTopNavbar() {
     if (!navRight) return;
     
     if (isLoggedIn) {
-        var nickname = (user && user.nickname) || '用户';
-        var avatar = (user && user.avatar) || '/uploads/avatars/default-avatar.png';
+        var nickname = escapeHtml((user && user.nickname) || '用户');
+        var avatar = escapeHtml((user && user.avatar) || '/uploads/avatars/default-avatar.png');
         var isMember = user && user.is_member;
         navRight.innerHTML = `
             <div class="dropdown">
@@ -73,8 +73,8 @@ function updateNavLeft(container, isLoggedIn, user) {
     container.innerHTML = '';
     
     if (isLoggedIn && user) {
-        var nickname = user.nickname || '用户';
-        var avatar = user.avatar || '/uploads/avatars/default-avatar.png';
+        var nickname = escapeHtml(user.nickname || '用户');
+        var avatar = escapeHtml(user.avatar || '/uploads/avatars/default-avatar.png');
         var isMember = user.is_member || false;
         
         var userWrapper = document.createElement('div');
@@ -432,7 +432,7 @@ function createFeaturedBooklistHTML(booklist) {
         });
     }
     
-    var descriptionHTML = booklist.description ? '<p class="featured-description">' + booklist.description + '</p>' : '';
+    var descriptionHTML = booklist.description ? '<p class="featured-description">' + escapeHtml(booklist.description) + '</p>' : '';
     
     return '<a href="booklist_jjdetail?listid=' + booklist.id + '" class="featured-item"><div class="featured-cover"><img src="' + escapeHtml(coverUrl) + '" alt="' + escapeHtml(booklist.title) + '" onerror="this.src=\'/image/default_cover.png\'">' + updateBadge + '</div><div class="featured-content"><h6 class="featured-title">' + escapeHtml(booklist.title) + '</h6><div class="featured-meta"><span class="book-count">' + booklist.book_count + ' 本书</span><span class="view-count"><i class="fas fa-heart"></i> ' + booklist.like_count + '</span><span class="view-count"><i class="fas fa-eye"></i> ' + booklist.view_count + '</span></div>' + descriptionHTML + (keywordsHTML ? '<div class="keywords">' + keywordsHTML + '</div>' : '') + '</div></a>';
 }
@@ -650,7 +650,7 @@ function createRandomBooklistHTML(booklist) {
     if (isJJ) {
         var levelHTML = '';
         if (booklist.level) {
-            levelHTML = '<div class="jj-level"><span class="level-badge level-' + booklist.level.toLowerCase() + '">' + booklist.level + '级</span></div>';
+            levelHTML = '<div class="jj-level"><span class="level-badge level-' + escapeHtml(String(booklist.level).toLowerCase()) + '">' + escapeHtml(booklist.level) + '级</span></div>';
         }
         
         var categoryHTML = '';
@@ -822,8 +822,8 @@ function createJJResultHTML(booklist) {
     
     var levelHTML = '';
     if (booklist.level) {
-        var levelLower = booklist.level.toLowerCase();
-        levelHTML = '<div class="jj-level"><span class="level-badge level-' + levelLower + '">' + booklist.level + '级</span></div>';
+        var levelLower = escapeHtml(String(booklist.level).toLowerCase());
+        levelHTML = '<div class="jj-level"><span class="level-badge level-' + levelLower + '">' + escapeHtml(booklist.level) + '级</span></div>';
     }
     
     var booksHTML = '';

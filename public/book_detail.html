@@ -754,7 +754,11 @@
                     return `${count}字`;
                 },
                 formatDesc(desc) {
-                    return (desc || '暂无简介').replace(/\n/g, '<br>');
+                    // 简介来自抓取的第三方站点, 必须转义后再把换行转成 <br>
+                    return String(desc || '暂无简介')
+                        .replace(/&/g, '&amp;').replace(/</g, '&lt;').replace(/>/g, '&gt;')
+                        .replace(/"/g, '&quot;').replace(/'/g, '&#39;')
+                        .replace(/\n/g, '<br>');
                 },
                 getCoverUrl(coverUrl) {
                     if (!coverUrl) return this.getDefaultCover();
