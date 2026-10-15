@@ -52,6 +52,7 @@ app.use(require('./routes/detail'));
 app.use(require('./routes/catalog'));
 app.use(require('./routes/content'));
 app.use(require('./routes/misc'));
+app.use(require('./routes/explore'));
 // 后台 API: 挂在 ADMIN_PATH 下, 统一鉴权 (路径与页面路径一致)
 const adminApi = express.Router();
 adminApi.use(require('./middleware/adminauth').required);
