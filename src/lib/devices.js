@@ -7,29 +7,49 @@ const crypto = require('crypto');
 const ONLINE_TTL = 15 * 60 * 1000; // 15 分钟内有请求视为在线
 const MAX_DEVICES = 20;            // 单账号保留的设备上限 (超出淘汰最旧)
 
-function fingerprint(req, explicitId) {
-  if (explicitId) return 'dev_' + crypto.createHash('sha1').update(String(explicitId)).digest('hex').slice(0, 12);
-  const ua = String(req.get('user-agent') || '');
-  const lang = String(req.get('accept-language') || '');
-  const ip = clientIp(req);
-  return 'dev_' + crypto.createHash('sha1').update(`${ua}|${lang}|${ip}`).digest('hex').slice(0, 12);
-}
-
-// 取真实客户端 IP: 反向代理后取 X-Forwarded-For 首个地址
 function clientIp(req) {
   const xff = String(req.get('x-forwarded-for') || '').split(',')[0].trim();
   const ip = xff || req.ip || (req.socket && req.socket.remoteAddress) || '';
   return ip.replace(/^::ffff:/, '');
 }
 
-function deviceName(ua) {
+function parseDeviceName(ua) {
   const s = String(ua || '');
-  if (/iPhone|iPad|iPod/i.test(s)) return 'iOS 设备';
-  if (/Android/i.test(s)) return 'Android 设备';
+  if (/iPhone OS (\d+[_.]\d+)/i.test(s)) {
+    const v = s.match(/iPhone OS (\d+[_.]\d+)/i)[1].replace(/_/g, '.');
+    return `iPhone (iOS ${v})`;
+  }
+  if (/iPad.*OS (\d+[_.]\d+)/i.test(s)) {
+    const v = s.match(/OS (\d+[_.]\d+)/i)[1].replace(/_/g, '.');
+    return `iPad (iPadOS ${v})`;
+  }
+  if (/Android\s*([\d.]+)?/i.test(s)) {
+    const m = s.match(/Android\s*([\d.]+)?/i);
+    const model = s.match(/;\s*([^;)]+)\s*Build/i);
+    const modelStr = model ? ' ' + model[1].trim() : '';
+    return 'Android' + (m && m[1] ? ' ' + m[1] : '') + modelStr;
+  }
   if (/Macintosh|Mac OS X/i.test(s)) return 'Mac 浏览器';
-  if (/Windows/i.test(s)) return 'Windows 浏览器';
+  if (/Windows NT/i.test(s)) return 'Windows 浏览器';
+  if (/Linux/i.test(s)) return 'Linux 客户端';
   if (/okhttp|legado|yuedu/i.test(s)) return '阅读 App';
-  return '未知设备';
+  return '移动端设备';
+}
+
+function parseDeviceIcon(ua) {
+  const s = String(ua || '');
+  if (/iPhone|iPad|iPod|Android|Mobile/i.test(s)) return 'mobile-alt';
+  if (/Macintosh|Windows|Linux/i.test(s)) return 'laptop';
+  return 'tablet-alt';
+}
+
+function fingerprint(req, explicitId) {
+  const headerId = String(explicitId || req.get('x-device-id') || req.get('device-id') || '').trim();
+  if (headerId) return 'dev_' + crypto.createHash('sha1').update(headerId).digest('hex').slice(0, 12);
+  const ua = String(req.get('user-agent') || '').trim();
+  // 仅用 UA 生成指纹，避免移动蜂窝网络 IP 频繁漂移导致重复产生多个设备条目
+  if (ua) return 'dev_' + crypto.createHash('sha1').update(ua).digest('hex').slice(0, 12);
+  return 'dev_' + crypto.createHash('sha1').update(clientIp(req)).digest('hex').slice(0, 12);
 }
 
 function relTime(ts) {
@@ -47,18 +67,26 @@ function touch(user, req, explicitId) {
   if (!user) return null;
   user.devices = user.devices || [];
   const id = fingerprint(req, explicitId);
+  const ua = req.get('user-agent') || '';
   const now = Date.now();
   let dev = user.devices.find((d) => d.id === id);
   if (!dev) {
-    dev = { id, name: deviceName(req.get('user-agent')), created_at: now };
+    dev = {
+      id,
+      name: parseDeviceName(ua),
+      icon: parseDeviceIcon(ua),
+      created_at: now
+    };
     user.devices.unshift(dev);
     if (user.devices.length > MAX_DEVICES) user.devices.length = MAX_DEVICES;
+  } else if (!dev.icon) {
+    dev.icon = parseDeviceIcon(ua);
   }
   dev.online = true;
   dev.last_active_at = now;
   dev.last_active_text = relTime(now);
   dev.ip = clientIp(req);
-  dev.platform = deviceName(req.get('user-agent'));
+  dev.platform = parseDeviceName(ua);
   return dev;
 }
 
@@ -71,4 +99,4 @@ function refreshOnline(user) {
   }
 }
 
-module.exports = { touch, refreshOnline, fingerprint, clientIp, deviceName, relTime, ONLINE_TTL, MAX_DEVICES };
+module.exports = { touch, refreshOnline, fingerprint, clientIp, deviceName: parseDeviceName, relTime, ONLINE_TTL, MAX_DEVICES };

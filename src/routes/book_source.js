@@ -169,6 +169,33 @@ function buildFullBookSource(base) {
     } catch (e) {}
   }
 
+  // 1. 去除 exploreUrl 中未登录番茄时的冗余 toast 弹窗提示
+  if (src.exploreUrl) {
+    src.exploreUrl = src.exploreUrl
+      .replace(/java\.toast\("番茄登录已过期，请重新登录"\);/g, '// 无需提示')
+      .replace(/java\.toast\("您还未登录番茄账号，无法同步数据"\);/g, '// 无需提示');
+  }
+
+  // 2. 补全 ruleSearch / ruleBookInfo 字段，确保类型与最新章节正常解析展示
+  if (src.ruleSearch) {
+    src.ruleSearch.kind = '$.tags||$.kind||$.source';
+    src.ruleSearch.lastChapter = '$.latestChapterTitle||{{$.source}}·{{$.latestChapterTitle}}';
+  }
+  if (src.ruleBookInfo) {
+    src.ruleBookInfo.kind = '$.tags||$.kind||$.source';
+    src.ruleBookInfo.lastChapter = '$.latestChapterTitle||$.last_chapter_title||$.lastChapter';
+  }
+
+  // 3. 增强正文请求的容错性，避免后端返回 null 时 Rhino 抛出 TypeError: Cannot read property "content" from null
+  if (src.ruleContent && src.ruleContent.content) {
+    const rawContent = src.ruleContent.content;
+    const oldFetchCode = 'let response=JSON.parse(java.ajax(chapterUrl));let finalResult=response.data.content;';
+    const safeFetchCode = 'let response=null;try{response=JSON.parse(java.ajax(chapterUrl));}catch(e){};let finalResult=(response&&response.data&&response.data.content!=null)?response.data.content:(response&&response.message?response.message:"正文获取失败，请重试或检查登录状态");';
+    if (rawContent.includes(oldFetchCode)) {
+      src.ruleContent.content = rawContent.replace(oldFetchCode, safeFetchCode);
+    }
+  }
+
   return [src];
 }
 

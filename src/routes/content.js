@@ -11,12 +11,18 @@ const router = express.Router();
 router.post('/content', auth.required, async (req, res) => {
   const params = req.body || {};
   const adapter = adapters.get(params.source);
-  if (!adapter) return res.status(400).json({ code: 400, message: '未知来源', data: null });
+  if (!adapter) {
+    return res.status(400).json({ code: 400, message: '未知来源', data: { content: '未知来源: ' + (params.source || '未指定') } });
+  }
   try {
     const data = await adapter.content(params);
+    if (!data || data.content == null) {
+      return res.json({ code: 200, message: '请求成功', data: { content: '暂无正文内容或已被下架', ...(data || {}) } });
+    }
     res.json({ code: 200, message: '请求成功', data });
   } catch (e) {
-    res.status(500).json({ code: 500, message: String(e.message || e), data: null });
+    const errMsg = String(e.message || e);
+    res.status(500).json({ code: 500, message: errMsg, data: { content: `正文加载失败: ${errMsg}` } });
   }
 });
 
