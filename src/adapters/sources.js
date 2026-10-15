@@ -387,4 +387,37 @@ module.exports = [
       },
     },
   },
+  {
+    name: '书旗',
+    base: 'https://www.shuqi.com',
+    // WAF 按浏览器指纹拦 (403), 只放行爬虫 UA; 引擎默认给 Chrome UA, 此处显式覆盖。
+    headers: {
+      'User-Agent': 'Mozilla/5.0 (compatible; Baiduspider/2.0; +http://www.baidu.com/search/spider.html)',
+      Referer: 'https://www.shuqi.com/',
+    },
+    search: {
+      request: { url: '/search?keyword={{key}}&page={{page}}' },
+      list: 'ul.clearfix > li',
+      fields: {
+        title: '.ellipsis@text',
+        author: '.book-autor a@text##^作者[：:]\\s*##',
+        bookUrl: '.ellipsis@href',
+        cover: '.book-cover img@src',
+        desc: '.book-newc@text',
+      },
+    },
+    detail: {
+      fields: {
+        title: '.view-book-info-book-title-box .bname@text',
+        author: '.bauthor a@text',
+        cover: '.infoarea .view img.cover@src',
+        desc: '.bookDesc@text',
+        tags: '.tags li a@text',
+      },
+    },
+    // 详情页只有首尾预览, 完整目录在 /chapter?bid={id}, 见 lib/shuqi.js
+    catalog: { build: require('./lib/shuqi').build },
+    // 正文走签名接口 + 自定义编码解码, 见 lib/shuqi.js
+    content: { build: require('./lib/shuqi').contentBuild },
+  },
 ];

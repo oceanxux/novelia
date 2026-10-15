@@ -8,6 +8,7 @@
 const qianyew = require('./qianyew');
 const fanqie = require('./fanqie');
 const jjwxc = require('./jjwxc');
+const qimao = require('./qimao');
 const { createAdapter } = require('./generic');
 const store = require('./store');
 
@@ -16,7 +17,7 @@ let ADAPTERS = new Map();
 function build() {
   const map = new Map();
   // 定制适配器优先 (同名的声明式配置被忽略)
-  [qianyew, fanqie, jjwxc].forEach((a) => map.set(a.name, a));
+  [qianyew, fanqie, jjwxc, qimao].forEach((a) => map.set(a.name, a));
   for (const cfg of store.list()) {
     if (map.has(cfg.name)) continue;
     map.set(cfg.name, createAdapter(cfg));
