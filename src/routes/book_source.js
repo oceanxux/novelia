@@ -8,6 +8,9 @@
 const express = require('express');
 const adapters = require('../adapters');
 const bookpool = require('../lib/bookpool');
+const auth = require('../middleware/auth');
+const readstats = require('../lib/readstats');
+const store = require('../lib/userstore');
 const { normalizeBookParams } = require('../lib/bookurl');
 const { withCover } = require('../lib/cover');
 
@@ -91,6 +94,11 @@ router.get('/api/bs/content', async (req, res) => {
   if (!adapter) return res.status(400).json({ code: 400, message: '未知来源', data: null });
   try {
     const data = await adapter.content({ source, url, bookid, cid });
+    // 书源侧正文出口: 带 X-Api-Key 时计入该用户的阅读统计
+    if (data && data.content) {
+      const user = auth.resolve(req);
+      if (readstats.record(user, { source, bookid, cid, url })) store.save();
+    }
     res.json({ code: 200, message: 'ok', data });
   } catch (e) {
     res.status(500).json({ code: 500, message: String(e.message || e), data: null });

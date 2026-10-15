@@ -11,6 +11,7 @@ const store = require('../lib/userstore');
 const metrics = require('../lib/metrics');
 const redeemcodes = require('../lib/redeemcodes');
 const devices = require('../lib/devices');
+const readstats = require('../lib/readstats');
 const upload = require('../middleware/upload');
 
 const router = express.Router();
@@ -111,6 +112,8 @@ function renderPage(user) {
   const isMember = !!user.is_member;
   devices.refreshOnline(user);
   const devices_ = user.devices || [];
+  // 阅读计数以服务端记录为准, 跨天后今日计数自动归零
+  const readStat = readstats.snapshot(user);
   const cfg = require('../lib/sysconfig').get();
   const normalLimitStr = (cfg.max_devices_normal === 0) ? '不限台数' : `${cfg.max_devices_normal} 台`;
   const memberLimitStr = (cfg.max_devices_member === 0) ? '不限台数' : `${cfg.max_devices_member} 台`;
@@ -126,8 +129,8 @@ function renderPage(user) {
     BADGE_CLASS: isMember ? 'member' : '',
     BADGE_ICON: isMember ? 'fa-crown' : 'fa-user',
     BADGE_TEXT: isMember ? '会员' : '普通用户',
-    STAT_ONLINE: String(user.stat_online || 0),
-    STAT_TODAY: String(user.stat_today || 0),
+    STAT_ONLINE: String(readStat.total),
+    STAT_TODAY: String(readStat.today),
     STAT_DEVICES: String(devices_.length),
     STAT_STATUS: String(devices_.filter((d) => d.online).length),
     DEVICE_LIMIT_TIP: esc(deviceLimitTip),

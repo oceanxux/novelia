@@ -5,6 +5,8 @@
 const express = require('express');
 const adapters = require('../adapters');
 const auth = require('../middleware/auth');
+const readstats = require('../lib/readstats');
+const store = require('../lib/userstore');
 const { normalizeBookParams } = require('../lib/bookurl');
 
 const router = express.Router();
@@ -21,6 +23,12 @@ router.post('/content', auth.required, async (req, res) => {
   if (p.bookid) args.bookid = args.bookid || p.bookid;
   try {
     const data = await adapter.content(args);
+    // 真实取到正文才计数 (未登录/正文为空不计), 同章节 5 分钟内去重
+    if (data && data.content) {
+      if (readstats.record(req.user, { source: params.source, bookid: p.bookid || params.bookid, cid: params.cid, url: p.url })) {
+        store.save();
+      }
+    }
     if (!data || data.content == null) {
       return res.json({ code: 200, message: '请求成功', data: { content: '暂无正文内容或已被下架', ...(data || {}) } });
     }

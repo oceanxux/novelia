@@ -14,6 +14,7 @@ const http = require('http');
 const express = require('express');
 const seed = require('../lib/seeddata');
 const store = require('../lib/userstore');
+const readstats = require('../lib/readstats');
 const userRoute = require('./user');
 const bookpool = require('../lib/bookpool');
 const jjlists = require('../lib/jjlists');
@@ -142,6 +143,10 @@ router.post('/api/chapter', async (req, res) => {
   if (!adapter) return res.status(400).json({ success: false, message: '未知来源' });
   try {
     const data = await adapter.content({ source, url, bookid, cid: Number(cid) || 0 });
+    // 网页阅读器正文出口: 登录用户计入阅读统计
+    if (data && data.content) {
+      if (readstats.record(user, { source, bookid, cid, url })) store.save();
+    }
     res.json({ success: true, ...data });
   } catch (e) {
     res.status(500).json({ success: false, message: String(e.message || e) });
