@@ -7,13 +7,16 @@
 //   POST /api/fq/logout
 //
 // 说明: 番茄段落评论无 Web 端接口 (App 网关需 X-Gorgon 签名), 故本路由只做登录。
+// 登录态是整台服务器共用的账号凭证, 读写它的接口必须登录 (见 accountauth);
+// 仅 /api/fq/status 保持公开只读, 供前台判断是否显示已登录。
 const express = require('express');
 const fqlogin = require('../lib/fqlogin');
 const fqtoken = require('../lib/fqtoken');
+const accountauth = require('../middleware/accountauth');
 
 const router = express.Router();
 
-router.get('/api/fq/login/scan', async (req, res) => {
+router.get('/api/fq/login/scan', accountauth.required, async (req, res) => {
   try {
     const s = await fqlogin.createQrSession(String(req.query.next || ''));
     // 前端每 1s 轮询, 需回带 token/csrf/cookies 以维持会话
@@ -31,7 +34,7 @@ router.get('/api/fq/login/scan', async (req, res) => {
   }
 });
 
-router.post('/api/fq/login/check', async (req, res) => {
+router.post('/api/fq/login/check', accountauth.required, async (req, res) => {
   const { token, csrf, cookies } = req.body || {};
   try {
     const r = await fqlogin.checkQrLogin({ token, csrf, cookies });
@@ -43,7 +46,7 @@ router.post('/api/fq/login/check', async (req, res) => {
 });
 
 // 备用: 用户从浏览器/别处拿到完整 cookie 串后手动保存
-router.post('/api/fq/login/save', (req, res) => {
+router.post('/api/fq/login/save', accountauth.required, (req, res) => {
   const raw = String((req.body && req.body.cookie) || '').trim();
   if (!raw) return res.json({ success: false, message: '缺少 cookie' });
   const cookies = {};
@@ -72,7 +75,7 @@ router.get('/api/fq/status', async (req, res) => {
   }
 });
 
-router.post('/api/fq/logout', (req, res) => {
+router.post('/api/fq/logout', accountauth.required, (req, res) => {
   fqtoken.clear();
   res.json({ success: true, message: '已退出番茄登录' });
 });

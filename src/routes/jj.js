@@ -6,6 +6,7 @@
 //     POST /api/jj/login/save          -> 保存 token (扫码成功后)
 //     GET  /api/jj/status              -> { logged_in }
 //     POST /api/jj/logout
+//   以上登录态是整台服务器共用的账号凭证, 必须登录后才能读写 (见 accountauth)。
 //   段评 (匿名可用, 登录非必需):
 //     GET  /api/jj/paragraph_counts?novelid=&chapterid=   -> { counts: {pid: n} }
 //     GET  /api/jj/comments?novelid=&chapterid=&pid=&offset=&limit=
@@ -14,6 +15,7 @@ const express = require('express');
 const QRCode = require('qrcode');
 const jj = require('../lib/jjwxc');
 const jjtoken = require('../lib/jjtoken');
+const accountauth = require('../middleware/accountauth');
 
 const router = express.Router();
 
@@ -31,8 +33,8 @@ router.get('/api/jj/qr', async (req, res) => {
   }
 });
 
-// ---- 登录 ----
-router.get('/api/jj/login/scan', async (req, res) => {
+// ---- 登录 (账号级: 需登录后才能读写) ----
+router.get('/api/jj/login/scan', accountauth.required, async (req, res) => {
   try {
     const s = await jj.createScanSession();
     s.qrImage = '/api/jj/qr?text=' + encodeURIComponent(s.qrUrl);
@@ -42,7 +44,7 @@ router.get('/api/jj/login/scan', async (req, res) => {
   }
 });
 
-router.post('/api/jj/login/check', async (req, res) => {
+router.post('/api/jj/login/check', accountauth.required, async (req, res) => {
   const { jjreader_key, device_key } = req.body || {};
   try {
     const r = await jj.checkScanLogin({ jjreader_key, device_key });
@@ -54,7 +56,7 @@ router.post('/api/jj/login/check', async (req, res) => {
 });
 
 // 手动保存 token (备用: 用户从别处拿到 token)
-router.post('/api/jj/login/save', (req, res) => {
+router.post('/api/jj/login/save', accountauth.required, (req, res) => {
   const token = String((req.body && req.body.token) || '').trim();
   if (!/\d+_/.test(token)) return res.json({ success: false, message: 'token 格式不正确' });
   jjtoken.setToken(token);
@@ -65,7 +67,7 @@ router.get('/api/jj/status', (req, res) => {
   res.json({ success: true, logged_in: jjtoken.isLoggedIn() });
 });
 
-router.post('/api/jj/logout', (req, res) => {
+router.post('/api/jj/logout', accountauth.required, (req, res) => {
   jjtoken.clear();
   res.json({ success: true, message: '已退出晋江登录' });
 });

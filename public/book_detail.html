@@ -737,6 +737,14 @@
                 }
             },
             methods: {
+                // 账号级接口 (晋江/番茄扫码登录) 需要登录凭证; 未登录时返回 false 由调用方提示
+                accountFetch(url, opts) {
+                    const token = localStorage.getItem('user_token') || '';
+                    if (!token) return Promise.resolve({ unauthorized: true });
+                    opts = opts || {};
+                    opts.headers = Object.assign({}, opts.headers || {}, { 'X-Novel-Token': token });
+                    return fetch(url, opts).then((r) => r.json().catch(() => ({})));
+                },
                 goBack() { window.history.back(); },
                 toggleDesc() { this.descExpanded = !this.descExpanded; },
                 formatWordCount(count) {
@@ -946,9 +954,9 @@
                     this.jjLogin.loading = true;
                     this.jjLogin.message = '';
                     this.jjLogin.qrImage = '';
-                    fetch('/api/jj/login/scan')
-                        .then((r) => r.json())
+                    this.accountFetch('/api/jj/login/scan')
                         .then((d) => {
+                            if (d.unauthorized) { this.jjLogin.message = '请先登录本站账号, 再扫码绑定晋江'; return; }
                             if (!d.success) { this.jjLogin.message = d.message || '获取二维码失败'; return; }
                             this.jjLogin.session = { jjreader_key: d.jjreader_key, device_key: d.device_key };
                             this.jjLogin.qrImage = d.qrImage;
@@ -962,13 +970,13 @@
                 pollJjLogin() {
                     const s = this.jjLogin.session;
                     if (!s) return;
-                    fetch('/api/jj/login/check', {
+                    this.accountFetch('/api/jj/login/check', {
                         method: 'POST',
                         headers: { 'Content-Type': 'application/json' },
                         body: JSON.stringify(s),
                     })
-                        .then((r) => r.json())
                         .then((d) => {
+                            if (d.unauthorized) return;
                             if (d.success && d.ok) {
                                 this.jjLoggedIn = true;
                                 this.jjLogin.message = '登录成功';
@@ -980,7 +988,7 @@
                         .catch(() => {});
                 },
                 jjLogout() {
-                    fetch('/api/jj/logout', { method: 'POST' })
+                    this.accountFetch('/api/jj/logout', { method: 'POST' })
                         .then(() => { this.jjLoggedIn = false; this.jjLogin.qrImage = ''; })
                         .catch(() => {});
                 },
@@ -998,9 +1006,9 @@
                     this.fqLogin.loading = true;
                     this.fqLogin.message = '';
                     this.fqLogin.qrImage = '';
-                    fetch('/api/fq/login/scan')
-                        .then((r) => r.json())
+                    this.accountFetch('/api/fq/login/scan')
                         .then((d) => {
+                            if (d.unauthorized) { this.fqLogin.message = '请先登录本站账号, 再扫码绑定番茄'; return; }
                             if (!d.success) { this.fqLogin.message = d.message || '获取二维码失败'; return; }
                             this.fqLogin.session = { token: d.token, csrf: d.csrf, cookies: d.cookies };
                             this.fqLogin.qrImage = d.qrImage;
@@ -1014,13 +1022,13 @@
                 pollFqLogin() {
                     const s = this.fqLogin.session;
                     if (!s) return;
-                    fetch('/api/fq/login/check', {
+                    this.accountFetch('/api/fq/login/check', {
                         method: 'POST',
                         headers: { 'Content-Type': 'application/json' },
                         body: JSON.stringify(s),
                     })
-                        .then((r) => r.json())
                         .then((d) => {
+                            if (d.unauthorized) return;
                             if (d.success && d.cookies) this.fqLogin.session.cookies = d.cookies;
                             if (d.success && d.ok) {
                                 this.fqLoggedIn = true;
@@ -1038,7 +1046,7 @@
                         .catch(() => {});
                 },
                 fqLogout() {
-                    fetch('/api/fq/logout', { method: 'POST' })
+                    this.accountFetch('/api/fq/logout', { method: 'POST' })
                         .then(() => { this.fqLoggedIn = false; this.fqUser = null; this.fqLogin.qrImage = ''; })
                         .catch(() => {});
                 },
