@@ -18,6 +18,16 @@ app.use((req, res, next) => {
   next();
 });
 
+// 诊断: 请求日志 (仅记录业务端点, 避免静态资源噪声)
+app.use((req, res, next) => {
+  if (!/^\/(search|api\/|type_|style_|read_|book_|user_|book_source|login)/.test(req.path)) return next();
+  const t0 = Date.now();
+  res.on('finish', () => {
+    console.log(`[req] ${req.method} ${req.originalUrl} -> ${res.statusCode} ${Date.now() - t0}ms`);
+  });
+  next();
+});
+
 // 后台路径 (安全: 可用环境变量 ADMIN_PATH 改成任意难猜路径, 默认 /admin)
 const ADMIN_PATH = (process.env.ADMIN_PATH || '/admin').replace(/\/+$/, '') || '/admin';
 
@@ -53,6 +63,7 @@ app.use(require('./routes/catalog'));
 app.use(require('./routes/content'));
 app.use(require('./routes/misc'));
 app.use(require('./routes/explore'));
+app.use(require('./routes/rank'));
 // 后台 API: 挂在 ADMIN_PATH 下, 统一鉴权 (路径与页面路径一致)
 const adminApi = express.Router();
 adminApi.use(require('./middleware/adminauth').required);

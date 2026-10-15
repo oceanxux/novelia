@@ -11,6 +11,8 @@ const { request } = require('../lib/http');
 
 const NAME = '晋江';
 const BASE = 'https://www.jjwxc.net';
+// 封面服务: 仅凭 novelid 即可取到, 匿名可访问
+const JJ_COVER = 'https://i9-static.jjwxc.net/novelimage.php';
 const UA = 'Mozilla/5.0 (Macintosh; Intel Mac OS X 10_15_7) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/126.0.0.0 Safari/537.36';
 const HEADERS = { 'User-Agent': UA, Referer: BASE + '/' };
 
@@ -61,7 +63,8 @@ async function search(keyword, page = 1) {
     books.push({
       title: $a.text().trim(),
       author: (infoText.match(/作者[：:]\s*([^\s]+)/) || [])[1] || '',
-      cover: '',
+      // 搜索结果页不含封面图; 晋江封面可由 novelid 直接推导 (novelimage.php 匿名可访问)
+      cover: `${JJ_COVER}?novelid=${id}`,
       desc: node.find('.intro').first().text().replace(/\s+/g, ' ').trim().slice(0, 200),
       tags: (infoText.match(/文章类型[：:]\s*([^\s]+)/) || [])[1] || '',
       wordCount: (infoText.match(/字数[：:]\s*(\d+)/) || [])[1] || '',

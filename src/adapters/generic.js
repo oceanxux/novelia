@@ -44,6 +44,23 @@ function lastNum(url) {
   return (String(url || '').match(/(\d+)(?!.*\d)/) || [])[1] || '';
 }
 
+// 番茄分类 (cat: { id, name, kw, aliases? }) 归一化到本站分类表 (cats: { 本站分类名: 路径值 })。
+// 三级匹配: 精确 -> 本站分类名含番茄词 (如「玄幻言情」含「玄幻」) -> 番茄词含本站分类名。
+// 匹配不到返回 null, 由调用方回退关键词检索 (绝不因缺分类而返回空列表)。
+function matchCatKey(cats, cat) {
+  if (!cats || !cat) return null;
+  const keys = [cat.name, cat.kw, ...(cat.aliases || [])]
+    .filter(Boolean).map((s) => String(s).trim()).filter(Boolean);
+  if (!keys.length) return null;
+  for (const k of keys) {
+    if (Object.prototype.hasOwnProperty.call(cats, k)) return cats[k];
+  }
+  const names = Object.keys(cats);
+  for (const n of names) for (const k of keys) if (k.length >= 2 && n.includes(k)) return cats[n];
+  for (const n of names) for (const k of keys) if (n.length >= 2 && k.includes(n)) return cats[n];
+  return null;
+}
+
 function createAdapter(cfg) {
   const base = cfg.base;
   const headers = { 'User-Agent': DEFAULT_UA, ...(cfg.headers || {}) };
@@ -104,7 +121,47 @@ function createAdapter(cfg) {
     const vars = { key: encodeURIComponent(keyword), page };
     const $ = await fetchDoc(req.url, { method: req.method || 'GET', body: req.body ? tmpl(req.body, vars) : undefined, vars });
     const nodes = $(cfg.search.list);
+    // 站点命中唯一结果时直接 302 到书籍详情页, 列表选择器会落空 (如得奇)。
+    // 此时详情页字段 (detail.fields) 就是这次搜索的唯一结果, 用同一套选择器兜底解析。
+    if (!nodes.length && cfg.search.singleAsDetail) {
+      const f = cfg.detail.fields;
+      const pick = (rule) => (rule ? (evalRule($, $.root(), rule) || '') : '');
+      const href = pick(cfg.search.singleUrlRule || 'link[rel=canonical]@href') || '';
+      const title = pick(f.title);
+      if (title && href) {
+        const bookUrl = abs(base, href);
+        return [{
+          title, author: pick(f.author) || '', cover: abs(base, pick(f.cover)) || '',
+          desc: pick(f.desc) || '', tags: pick(f.tags) || '', wordCount: pick(f.wordCount) || '',
+          latestChapterTitle: pick(f.latestChapterTitle) || '',
+          source: cfg.name, tab: 'novel',
+          book_url: bookUrl, bookid: lastNum(bookUrl),
+        }];
+      }
+      return [];
+    }
     return fieldList($, nodes, cfg.search.fields).map((b) => ({
+      title: b.title || '', author: b.author || '', cover: b.cover || '',
+      desc: b.desc || '', tags: b.tags || '', wordCount: b.wordCount || '',
+      latestChapterTitle: b.latestChapterTitle || '',
+      source: cfg.name, tab: 'novel',
+      book_url: b.bookUrl || '', bookid: lastNum(b.bookUrl),
+    })).filter((b) => b.title && b.book_url);
+  }
+
+  // 分类浏览 (声明式源可选能力): 按站点真实分类页取书单, 而非把分类名当关键词搜。
+  // cat = { id, name, kw } (来自 explore-categories); page >= 1。
+  // 返回 null 表示本站无分类页配置或该分类未映射 -> 调用方回退 search()。
+  // 返回数组表示已命中真实分类页 (含空数组, 即该页确无书)。
+  async function browse(cat, page = 1) {
+    if (!cfg.browse || !cfg.browse.list) return null;
+    const key = matchCatKey(cfg.browse.categories, cat);
+    if (key == null) return null;
+    const vars = { page, key };
+    const tpl = (page > 1 && cfg.browse.pageUrl) ? cfg.browse.pageUrl : cfg.browse.url;
+    const $ = await fetchDoc(tpl, { vars });
+    const nodes = $(cfg.browse.list);
+    return fieldList($, nodes, cfg.browse.fields || cfg.search.fields).map((b) => ({
       title: b.title || '', author: b.author || '', cover: b.cover || '',
       desc: b.desc || '', tags: b.tags || '', wordCount: b.wordCount || '',
       latestChapterTitle: b.latestChapterTitle || '',
@@ -189,7 +246,85 @@ function createAdapter(cfg) {
     return { content: parts.join('\n'), source: cfg.name, tab: 'novel', notice: null };
   }
 
-  return { name: cfg.name, base, search, detail, catalog, content };
+  const api = { name: cfg.name, base, search, detail, catalog, content, browse };
+  api.diagnose = makeDiagnose(api, cfg, fetchDoc);
+  return api;
 }
 
-module.exports = { createAdapter, abs, tmpl };
+// 选择器自检: 逐字段跑一遍 search/detail/catalog, 报告每个选择器是否真抓到值。
+// 加源时一键调用, 避免"选择器写错/抓错层 -> 静默返回空"的坑 (如茶马 tags 取错容器)。
+// 目标书籍来源优先级: 显式 url/bookid > 用 keyword 搜索取第一条结果。
+function makeDiagnose(adapter, cfg, fetchDoc) {
+  const evalRule = require('../lib/rule').evalRule;
+
+  return async function diagnose({ url, bookid, keyword, page = 1 } = {}) {
+    const report = { name: cfg.name, target: null, keyword: keyword || '', checks: [] };
+    const push = (scope, field, rule, value) => {
+      const v = value == null ? '' : String(value);
+      report.checks.push({
+        scope, field, rule: rule || '',
+        value: v.length > 120 ? v.slice(0, 120) + '…' : v,
+        len: v.trim().length,
+        ok: v.trim().length > 0,
+      });
+    };
+    const summary = (scope) => {
+      const rows = report.checks.filter((c) => c.scope === scope);
+      return { total: rows.length, hit: rows.filter((c) => c.ok).length, miss: rows.filter((c) => !c.ok).map((c) => c.field) };
+    };
+
+    // 1) 搜索字段命中率 (逐条汇总, 不逐条展开以免报告爆炸)
+    if (keyword) {
+      try {
+        const books = await adapter.search(keyword, page);
+        report.searchCount = books.length;
+        for (const f of Object.keys(cfg.search.fields || {})) {
+          const hit = books.filter((b) => {
+            const v = f === 'bookUrl' ? b.book_url : b[f];
+            return v != null && String(v).trim() !== '';
+          }).length;
+          report.checks.push({
+            scope: 'search', field: f, rule: cfg.search.fields[f] || '',
+            value: `命中 ${hit}/${books.length}`, len: hit, ok: hit > 0,
+          });
+        }
+        if (!report.target && books[0]) report.target = { book_url: books[0].book_url, bookid: books[0].bookid, title: books[0].title };
+      } catch (e) {
+        report.checks.push({ scope: 'search', field: '(搜索请求)', rule: cfg.search.request.url, value: '', len: 0, ok: false, error: String(e.message || e) });
+      }
+    }
+
+    // 2) 详情字段自检 (核心: 逐字段报 raw 值 + 是否为空)
+    const targetUrl = url || (report.target && report.target.book_url) || '';
+    const targetId = bookid || (report.target && report.target.bookid) || '';
+    if (targetUrl || targetId) {
+      report.target = report.target || { book_url: targetUrl, bookid: targetId };
+      try {
+        const bookUrl = targetUrl || tmpl(cfg.detail.urlFromId || '/book/{{id}}', { id: targetId });
+        report.target.book_url = bookUrl;
+        const $ = await fetchDoc(bookUrl);
+        for (const [k, rule] of Object.entries(cfg.detail.fields || {})) {
+          push('detail', k, rule, evalRule($, $.root(), rule));
+        }
+      } catch (e) {
+        report.checks.push({ scope: 'detail', field: '(详情页请求)', rule: targetUrl, value: '', len: 0, ok: false, error: String(e.message || e) });
+      }
+    }
+
+    // 3) 目录计数 (声明式直接数; build 钩子跑一遍拿条数)
+    try {
+      const chapters = await adapter.catalog({ url: report.target && report.target.book_url, bookid: report.target && report.target.bookid });
+      report.catalogCount = chapters.length;
+      report.checks.push({ scope: 'catalog', field: '章节数', rule: cfg.catalog.list || '(build 钩子)', value: String(chapters.length), len: chapters.length, ok: chapters.length > 0 });
+    } catch (e) {
+      report.checks.push({ scope: 'catalog', field: '章节数', rule: cfg.catalog.list || '(build 钩子)', value: '', len: 0, ok: false, error: String(e.message || e) });
+    }
+
+    report.summary = { search: summary('search'), detail: summary('detail'), catalog: summary('catalog') };
+    report.ok = report.checks.every((c) => c.ok);
+    report.missFields = report.checks.filter((c) => !c.ok && c.scope !== 'catalog').map((c) => `${c.scope}.${c.field}`);
+    return report;
+  };
+}
+
+module.exports = { createAdapter, abs, tmpl, matchCatKey };

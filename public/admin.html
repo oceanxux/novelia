@@ -385,6 +385,7 @@ function renderEditor(meta) {
       <button class="primary" id="saveBtn"${ro ? ' disabled' : ''}>${isNew ? '创建' : '保存'}</button>
       <button class="ghost" id="copyBtn">另存为副本</button>
       <button class="ghost" id="testBtn">🧪 试跑测试并滚动到底部</button>
+      <button class="ghost" id="diagBtn">🔬 选择器自检</button>
       <div class="spacer"></div>
       <button class="danger" id="delBtn"${ro || isNew ? ' disabled' : ''}>删除</button>
     </div>
@@ -395,6 +396,7 @@ function renderEditor(meta) {
         <div style="display:flex;align-items:flex-end"><button class="primary" id="runTest">🚀 立即运行 (搜索 → 详情 → 目录 → 正文)</button></div>
       </div>
       <div id="testres" class="hint">点「立即运行」用当前表单配置实际抓一次, 验证选择器是否正确 (不落盘).</div>
+      <div id="diagres"></div>
     </fieldset>`;
   bindEditor(meta);
 }
@@ -436,6 +438,7 @@ function bindEditor(meta) {
   $('#saveBtn').onclick = () => save(meta);
   $('#delBtn').onclick = () => del(meta);
   $('#testBtn').onclick = () => runTest(meta);
+  $('#diagBtn').onclick = () => runDiagnose(meta);
   $('#runTest').onclick = () => runTest(meta);
   $('#copyBtn').onclick = () => {
     let cfg;
@@ -539,6 +542,48 @@ function summarize(s) {
   if (typeof s.value === 'string') return s.value.slice(0, 120).replace(/\s+/g, ' ');
   if (s.value.content) return `${s.value.content.length} 字符`;
   return JSON.stringify(s.value).slice(0, 120);
+}
+
+// ---- 选择器自检 ----
+async function runDiagnose(meta) {
+  const target = document.getElementById('testSection');
+  if (target) target.scrollIntoView({ behavior: 'smooth', block: 'start' });
+  let cfg;
+  try { cfg = collectConfig(); } catch (e) { cfg = null; }
+  const sourceName = (meta && meta.name) || (cfg && cfg.name) || val('f_name');
+  $('#diagres').innerHTML = '<div class="hint"><span class="spin"></span> 逐字段自检中…</div>';
+  const body = {
+    keyword: val('f_testkey') || '斗破苍穹',
+    sourceName,
+    config: cfg || (meta && meta.config) || { name: sourceName, base: 'http://placeholder' },
+  };
+  const r = await AF('/api/diagnose', { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify(body) });
+  const j = await r.json();
+  renderDiagnose(j);
+}
+
+function renderDiagnose(j) {
+  if (j.error && !j.report) { $('#diagres').innerHTML = `<div class="hint" style="color:var(--err)">${esc(j.error)}</div>`; return; }
+  const rep = j.report || {};
+  const scopeLabel = { search: '① 搜索 search', detail: '② 详情 detail', catalog: '③ 目录 catalog' };
+  const scopeOf = (s) => (rep.checks || []).filter((c) => c.scope === s);
+  const rowsHtml = (rows) => rows.map((c) => `
+    <div class="step">
+      <span class="pill ${c.ok ? 'ok' : 'err'}">${c.ok ? '✓' : '✗'}</span>
+      <span class="lab">${esc(c.field)}</span>
+      <span class="det"><code style="opacity:.7">${esc(c.rule || '')}</code> → ${c.ok ? esc(c.value) : '<span style="color:var(--err)">空</span>'}</span>
+    </div>`).join('');
+  const sections = ['search', 'detail', 'catalog'].map((s) => {
+    const rows = scopeOf(s);
+    if (!rows.length) return '';
+    const sum = (rep.summary && rep.summary[s]) || { total: rows.length, hit: rows.filter((c) => c.ok).length };
+    return `<div class="sect" style="margin:12px 0 4px">${scopeLabel[s]} · 命中 ${sum.hit}/${sum.total}</div>${rowsHtml(rows)}`;
+  }).join('');
+  const tgt = rep.target ? `<div class="hint">目标: ${esc(rep.target.title || '')} ${esc(rep.target.book_url || '')}</div>` : '';
+  const head = rep.ok
+    ? `<div class="banner ok">全部字段命中 ✓</div>`
+    : `<div class="banner err">${(rep.missFields || []).length} 个字段选择器未抓到值: ${(rep.missFields || []).map(esc).join(', ')}</div>`;
+  $('#diagres').innerHTML = `<div class="hint" style="margin-top:12px">🔬 选择器自检</div>${head}${tgt}${sections}`;
 }
 
 // ---- JSON 导入与 Legado 转换 ----

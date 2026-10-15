@@ -6,6 +6,7 @@
 //   PUT    /api/sources/:name     修改用户源
 //   DELETE /api/sources/:name     删除用户源
 //   POST   /api/test              试跑一份配置 (搜索->详情->目录->正文), 不落盘
+//   POST   /api/diagnose          选择器自检: 逐字段报告 detail/search/catalog 命中情况
 const express = require('express');
 const store = require('../adapters/store');
 const adapters = require('../adapters');
@@ -118,6 +119,39 @@ router.post('/api/test', async (req, res) => {
     return res.json({ ok: true, report });
   } catch (e) {
     return res.status(500).json({ error: String(e.message || e), report });
+  }
+});
+
+
+// 选择器自检: 逐字段跑一遍, 报告每个选择器抓到的真实值 / 是否为空。
+// 加源后一键调用, 立刻看出"哪个字段选择器写错了"(如取错容器导致静默返回空)。
+router.post('/api/diagnose', async (req, res) => {
+  const body = req.body || {};
+  const cfg = body.config;
+  const sourceName = body.sourceName || (cfg && cfg.name);
+
+  let adapter = sourceName ? adapters.get(sourceName) : null;
+  if (!adapter) {
+    if (!cfg) return res.status(400).json({ error: '配置为空且未指定有效源: ' + sourceName });
+    const err = store.validate(cfg);
+    if (err) return res.status(400).json({ error: err });
+    try {
+      adapter = createAdapter(cfg);
+    } catch (e) {
+      return res.status(400).json({ error: '适配器创建失败: ' + e.message });
+    }
+  }
+  // 定制模块 (无声明式配置) 无选择器可自检
+  if (typeof adapter.diagnose !== 'function') {
+    return res.status(400).json({ error: `源「${adapter.name}」为定制模块, 无声明式选择器可自检` });
+  }
+  try {
+    const report = await adapter.diagnose({
+      url: body.url, bookid: body.bookid, keyword: body.keyword, page: body.page,
+    });
+    res.json({ ok: report.ok, report });
+  } catch (e) {
+    res.status(500).json({ error: String(e.message || e) });
   }
 });
 

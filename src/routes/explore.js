@@ -15,6 +15,7 @@ const express = require('express');
 const adapters = require('../adapters');
 const bookpool = require('../lib/bookpool');
 const cats = require('../lib/explore-categories');
+const { baseUrl, withCover } = require('../lib/cover');
 
 const router = express.Router();
 
@@ -32,9 +33,13 @@ const cooldown = new Map();
 
 function cached(key, fn) {
   const hit = cache.get(key);
-  if (hit && Date.now() - hit.at < CACHE_TTL) return hit.val;
+  if (hit && Date.now() - hit.at < (hit.ttl || CACHE_TTL)) return hit.val;
   const val = Promise.resolve().then(fn).catch(() => []);
-  cache.set(key, { at: Date.now(), val });
+  const entry = { at: Date.now(), val, ttl: CACHE_TTL };
+  cache.set(key, entry);
+  // 空结果多为源站冷启动/抖动 (首访超时), 只缓存 30s: 避免一次超时把该分类钉死 5 分钟。
+  // 真实"该源无此分类"的空结果也会在 30s 后重试, 代价可接受。
+  val.then((r) => { if (!r || !r.length) entry.ttl = 30 * 1000; });
   return val;
 }
 
@@ -55,22 +60,33 @@ function toBook(b) {
     author: b.author || '',
     cover: b.cover || '',
     desc: b.desc || '',
+    tags: b.tags || '',
     source: b.source || '',
     book_url: b.book_url || '',
     bookid: b.bookid || '',
   };
 }
 
-// 单源分类检索
-async function listBySource(source, kw, page) {
+// 单源分类检索: 优先走源站真实分类页 (browse), 无该能力/未映射/失败时回退关键词检索 (search)。
+// cat 为 explore-categories 的分类项 { id, name, kw }; 兼容旧的字符串 kw 入参。
+async function listBySource(source, cat, page, base) {
   const a = adapters.get(source);
   if (!a) return [];
-  try {
-    const list = await withTimeout(a.search(kw, page), SOURCE_TIMEOUT * 2);
-    return (list || []).map(toBook).filter((b) => b.title && b.book_url);
-  } catch (e) {
-    return [];
+  const catObj = (cat && typeof cat === 'object') ? cat : { name: String(cat || ''), kw: String(cat || '') };
+  let list = null;
+  if (typeof a.browse === 'function') {
+    try {
+      list = await withTimeout(a.browse(catObj, page), SOURCE_TIMEOUT * 2);
+    } catch (e) { list = null; }
   }
+  if (!list || !list.length) {
+    try {
+      list = await withTimeout(a.search(catObj.kw || catObj.name || '小说', page), SOURCE_TIMEOUT * 2);
+    } catch (e) { return []; }
+  }
+  const books = (list || []).map(toBook).filter((b) => b.title && b.book_url);
+  await bookpool.enrichBooks(books, { limit: 24 });
+  return withCover(books, base);
 }
 
 // 聚合分类检索: 各源并行, 慢源跳过, 按源轮询交错避免被单源大结果集挤占
@@ -123,9 +139,13 @@ function poolFallback(kw, limit) {
   }
 }
 
-async function browse(kw, limit) {
+async function browse(kw, limit, base) {
   const live = await cached(`agg:${kw}:${limit}`, () => aggregateSearch(kw, limit));
-  return live.length ? live : poolFallback(kw, limit);
+  const list = live.length ? live : poolFallback(kw, limit);
+  // 列表页不提供封面的源 (得奇/错层/晋江等) 走详情页补齐
+  await bookpool.enrichBooks(list, { limit: 24 });
+  // 站点本身也没有封面的 (茶马) 补本站默认图, 避免客户端渲染空白方块
+  return withCover(list, base);
 }
 
 function catKw(id) {
@@ -145,8 +165,8 @@ router.get('/type_api', async (req, res) => {
     const cat = cats.findCategory(ref);
     if (!cat) return res.json({ code: 0, message: 'ok', data: { data: [], has_more: false } });
     const books = source
-      ? await cached(`src:${source}:${cat.id}:${page}`, () => listBySource(source, cat.kw, page))
-      : await browse(cat.kw, 30);
+      ? await cached(`src:${source}:${cat.id}:${page}`, () => listBySource(source, cat, page, baseUrl(req)))
+      : await browse(cat.kw, 30, baseUrl(req));
     return res.json({ code: 0, message: 'ok', data: { data: books, has_more: books.length >= 10 } });
   }
 
@@ -168,7 +188,7 @@ router.get('/style_top', async (req, res) => {
   const kw = cat ? cat.kw : '小说';
   const limit = Math.min(50, Math.max(1, parseInt(req.query.limit, 10) || 10));
   const offset = Math.max(0, parseInt(req.query.offset, 10) || 0);
-  const books = await browse(kw, 60);
+  const books = await browse(kw, 60, baseUrl(req));
   res.json({
     code: 0,
     message: 'SUCCESS',
@@ -194,7 +214,7 @@ router.get('/type_style', async (req, res) => {
   const id = Number(req.query.category_id);
   const limit = 20;
   const offset = Math.max(0, parseInt(req.query.offset, 10) || 0);
-  const books = await browse(catKw(id), 60);
+  const books = await browse(catKw(id), 60, baseUrl(req));
   res.json({
     code: 0,
     message: 'SUCCESS',
@@ -207,9 +227,10 @@ router.get('/type_style', async (req, res) => {
 });
 
 // ---- /read_recommend ---- 个性推荐
-router.get('/read_recommend', (req, res) => {
+router.get('/read_recommend', async (req, res) => {
   const books = poolFallback('', 30);
-  res.json({ code: 0, message: 'SUCCESS', data: { data: books } });
+  await bookpool.enrichBooks(books, { limit: 24 });
+  res.json({ code: 0, message: 'SUCCESS', data: { data: withCover(books, baseUrl(req)) } });
 });
 
 // ---- 番茄账号相关: 本站没有该 App 的会话, 返回结构合法的空值 ----

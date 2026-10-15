@@ -5,11 +5,14 @@ node_modules/
 data/users.json
 data/redeem_codes.json
 data/bookpool.json
+data/bookmeta.json
 data/jj_account.json
 data/user-sources.json
 data/admins.json
 data/fq_account.json
 data/system_config.json
+# Cloudflare 会话 (cf_clearance 为登录凭据, 严禁入库)
+data/cf-sessions.json
 
 # 用户上传的头像 (保留默认头像)
 public/uploads/avatars/*
@@ -21,9 +24,16 @@ public/uploads/avatars/*
 .env
 .env.*
 
+# 运行时缓存 (书源 JS 缓存 / 服务日志, 不入库)
+cache/
+
 # 生成器中间产物
 tools/gen_sources.json
 tools/sources_draft.js
+
+# 备份文件 (改写前留档, 不入库)
+*.orig
+*.bak
 
 # 本地专用 (探针/技术文档/生成器/测试, 仅本机使用, 不入库)
 tools/local/

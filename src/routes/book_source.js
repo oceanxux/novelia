@@ -9,6 +9,7 @@ const express = require('express');
 const adapters = require('../adapters');
 const bookpool = require('../lib/bookpool');
 const { normalizeBookParams } = require('../lib/bookurl');
+const { withCover } = require('../lib/cover');
 
 const router = express.Router();
 
@@ -27,7 +28,7 @@ router.get('/api/bs/search', async (req, res) => {
   if (!key) return res.json({ data: [] });
   let books = [];
   try { books = await bookpool.searchLive(key, 60); } catch (e) { books = []; }
-  const data = books.map((b) => ({
+  const data = withCover(books, base).map((b) => ({
     title: b.title,
     author: b.author || '',
     cover: b.cover || '',
@@ -175,6 +176,48 @@ function buildFullBookSource(base) {
       .replace(/java\.toast\("您还未登录番茄账号，无法同步数据"\);/g, '// 无需提示');
   }
 
+  // 1.5 番茄官方榜单改走本服务代理: 原 URL 直连番茄, payload 无简介字段。
+  //     代理端点负责补全 abstract/category (并发抓详情页 + bookmeta 缓存)。
+  //     返回结构与番茄原 API 保持一致, ruleExplore.bookList 的解析逻辑无需改动。
+  //     ?refresh=1 由客户端的「🔄刷新」触发, 强制重抓榜单列表 (排名即时更新)。
+  if (src.exploreUrl) {
+    src.exploreUrl = src.exploreUrl
+      .replace(
+        "'https://fanqienovel.com/api/author/misc/top_book_list/v1/?limit=100&offset={{(page-1)*100}}'",
+        "getServerHost() + '/rank/top?limit=100&offset={{(page-1)*100}}' + _rq"
+      )
+      .replace(
+        "'https://fanqienovel.com/api/node/publication/list?page_index={{(page-1)*100}}&page_count=100'",
+        "getServerHost() + '/rank/publication?page_index={{(page-1)*100}}&page_count=100' + _rq"
+      )
+      .replace(
+        "'https://api-lf.fanqiesdk.com/api/novel/channel/homepage/rank/rank_list/v2/?aid=13&limit=50&offset={{(page-1)*100}}&side_type=15&type=1'",
+        "getServerHost() + '/rank/sdk?limit=50&offset={{(page-1)*100}}&side_type=15' + _rq"
+      )
+      .replace(
+        "'https://api-lf.fanqiesdk.com/api/novel/channel/homepage/rank/rank_list/v2/?aid=13&limit=50&offset={{(page-1)*100}}&side_type=13&type=1'",
+        "getServerHost() + '/rank/sdk?limit=50&offset={{(page-1)*100}}&side_type=13' + _rq"
+      )
+      .replace(
+        "'https://api-lf.fanqiesdk.com/api/novel/channel/homepage/rank/rank_list/v2/?aid=13&limit=50&offset={{(page-1)*100}}&side_type=12&type=1'",
+        "getServerHost() + '/rank/sdk?limit=50&offset={{(page-1)*100}}&side_type=12' + _rq"
+      );
+  }
+
+  // 1.6 「🔄刷新」按钮: 原样调用 java.refreshExplore() 无法传参。改为先置一次性标志
+  //     _rankRefresh, exploreUrl 读取后拼 &refresh=1 并立即清除 -> 只有这一次刷新强制重抓榜单。
+  if (src.exploreUrl) {
+    src.exploreUrl = src.exploreUrl.replace(
+      'action: "java.refreshExplore()",',
+      'action: "setConfigs.call(this,{_rankRefresh:1}); java.refreshExplore()",'
+    );
+    // 注入一次性标志读取 (放在 config 确定之后、URL 拼接之前)
+    src.exploreUrl = src.exploreUrl.replace(
+      'let obj = (title, url, type) => ({',
+      "let _rq = config._rankRefresh ? '&refresh=1' : '';\nif (config._rankRefresh) setConfigs.call(this, { _rankRefresh: 0 });\nlet obj = (title, url, type) => ({"
+    );
+  }
+
   // 2. 补全 ruleSearch / ruleBookInfo 字段，保证在 Flutter (源阅/栖阅) 换源时非空，避免 "Null check operator used on a null value"
   if (src.ruleSearch) {
     src.ruleSearch.name = '$.title||$.name||$.book_name||未知书名';
@@ -200,6 +243,13 @@ function buildFullBookSource(base) {
         'bookid: result.bookid || result.book_id || ""'
       );
     }
+  }
+
+  // 2.1 发现页 kind 回退: 原模板 ruleExplore.kind 只有 '$.tags', 无回退。
+  //     首页推荐/分类榜单的书若 tags 为空 (如聚合源列表页不提供分类), 客户端渲染成 "未知"。
+  //     与 ruleSearch/ruleBookInfo 对齐, 加 source/小说 兜底。
+  if (src.ruleExplore) {
+    src.ruleExplore.kind = '$.tags||$.kind||$.category||$.source||小说';
   }
 
   // 3. 增强 jsLib 中的 buildChapterUrl，修复番茄章节 /reader/(\\d+) 以及 itemId 提取，避免 item_id 成为 null

@@ -4,6 +4,7 @@
 const fs = require('fs');
 const path = require('path');
 const adapters = require('../adapters');
+const bookmeta = require('./bookmeta');
 
 const DATA_DIR = process.env.DATA_DIR || path.join(__dirname, '..', '..', 'data');
 const CACHE_FILE = path.join(DATA_DIR, 'bookpool.json');
@@ -60,6 +61,7 @@ async function build() {
               author: b.author || '',
               cover: b.cover || '',
               desc: b.desc || '',
+              tags: b.tags || '',
               source: b.source,
               book_url: b.book_url || '',
               bookid: b.bookid || '',
@@ -154,11 +156,58 @@ async function searchLive(q, limit = 60) {
       const k = keyOf(b);
       if (seen.has(k)) continue;
       seen.add(k);
-      out.push({ title: b.title, author: b.author || '', cover: b.cover || '', desc: b.desc || '', source: b.source, book_url: b.book_url || '', bookid: b.bookid || '' });
+      out.push({ title: b.title, author: b.author || '', cover: b.cover || '', desc: b.desc || '', tags: b.tags || '', source: b.source, book_url: b.book_url || '', bookid: b.bookid || '' });
       if (out.length >= limit) break;
     }
   }
   return out;
 }
 
-module.exports = { init, build, get, searchLive, size: () => cache.books.length };
+// 列表页不提供封面/简介/分类的源 (得奇/错层/晋江等) 走一次详情页补齐。
+// 补 cover + desc + tags: 详情规则里本就有这些字段, 只是列表页拿不到。
+// 结果按 book_id 落到 bookmeta 缓存 (TTL 7 天), 重复调用不再抓取。
+async function enrichBooks(books, { limit = 30, concurrency = 6, timeout = 8000, force = false } = {}) {
+  const targets = (books || []).filter((b) =>
+    b && b.source && (b.book_url || b.bookid)
+    && (!b.cover || !b.desc || !b.tags)).slice(0, limit);
+  if (!targets.length) return books;
+
+  let cursor = 0;
+  const worker = async () => {
+    while (cursor < targets.length) {
+      const b = targets[cursor++];
+      // 命中元数据缓存: 直接回填, 不抓取
+      if (!force) {
+        const hit = bookmeta.get(b.source, b.bookid);
+        if (hit) { applyMeta(b, hit); continue; }
+      }
+      const a = adapters.get(b.source);
+      if (!a) continue;
+      try {
+        const info = await Promise.race([
+          a.detail({ url: b.book_url, bookid: b.bookid }),
+          new Promise((_, rej) => { const t = setTimeout(() => rej(new Error('timeout')), timeout); if (t.unref) t.unref(); }),
+        ]);
+        if (info) {
+          applyMeta(b, info);
+          bookmeta.set(b.source, b.bookid, info);
+        }
+      } catch (e) {
+        // 单本补全失败: 保持原样, 由响应出口兜默认图
+      }
+    }
+  };
+  await Promise.all(Array.from({ length: Math.min(concurrency, targets.length) }, worker));
+  return books;
+}
+
+// 只补空字段, 不覆盖列表页已有的值
+function applyMeta(b, m) {
+  if (!b.cover && m.cover) b.cover = m.cover;
+  if (!b.desc && m.desc) b.desc = m.desc;
+  if (!b.tags && m.tags) b.tags = m.tags;
+  if (!b.wordCount && m.wordCount) b.wordCount = m.wordCount;
+  if (!b.latestChapterTitle && m.latestChapterTitle) b.latestChapterTitle = m.latestChapterTitle;
+}
+
+module.exports = { init, build, get, searchLive, enrichBooks, enrichCovers: enrichBooks, size: () => cache.books.length };
