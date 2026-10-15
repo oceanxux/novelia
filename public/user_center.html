@@ -115,16 +115,21 @@
     <!-- ===== 设备管理 Tab ===== -->
     <div class="tab-pane" id="tab-devices">
         <div class="card">
-            <div class="card-header">
-                <span><i class="fas fa-mobile-alt me-2"></i> 我的设备</span>
-                <span class="text-muted" style="font-size:0.75rem;font-weight:400;">共 {{STAT_DEVICES}} 台，{{STAT_STATUS}} 台在线</span>
+            <div class="card-header" style="display:flex;justify-content:space-between;align-items:center;">
+                <div>
+                    <span><i class="fas fa-mobile-alt me-2"></i> 我的设备</span>
+                    <span class="text-muted ms-2" style="font-size:0.75rem;font-weight:400;">共 {{STAT_DEVICES}} 台，{{STAT_STATUS}} 台在线</span>
+                </div>
+                <div>
+                    <button class="btn btn-sm btn-outline-danger" id="clearOfflineBtn" style="font-size:0.75rem;padding:2px 8px;"><i class="fas fa-broom me-1"></i> 清理离线设备</button>
+                </div>
             </div>
             <div class="card-body" style="padding:0;">
                 {{DEVICES_HTML}}
             </div>
         </div>
         <div class="text-muted small text-center mt-2">
-            <i class="fas fa-info-circle"></i> 普通用户限 1 台设备在线，会员限 3 台设备在线
+            <i class="fas fa-info-circle"></i> {{DEVICE_LIMIT_TIP}}
         </div>
     </div>
 
@@ -785,6 +790,39 @@
             });
         });
     });
+
+    const clearOfflineBtn = document.getElementById('clearOfflineBtn');
+    if (clearOfflineBtn) {
+        clearOfflineBtn.addEventListener('click', function() {
+            Swal.fire({
+                title: '清理离线设备',
+                text: '确定要一键清理所有离线设备吗？',
+                icon: 'question',
+                showCancelButton: true,
+                confirmButtonText: '确定清理',
+                cancelButtonText: '取消',
+                confirmButtonColor: '#ef4444'
+            }).then(result => {
+                if (result.isConfirmed) {
+                    fetch('user_center', {
+                        method: 'POST',
+                        headers: { 'Content-Type': 'application/x-www-form-urlencoded' },
+                        body: 'action=clear_offline_devices'
+                    })
+                    .then(r => r.json())
+                    .then(d => {
+                        if (d.success) {
+                            showToast(d.message || '清理成功');
+                            location.reload();
+                        } else {
+                            showToast(d.message || '清理失败', 'error');
+                        }
+                    })
+                    .catch(() => showToast('网络错误', 'error'));
+                }
+            });
+        });
+    }
 
     // ============ 头像上传 ============
     document.getElementById('avatar-input')?.addEventListener('change', function(e) {

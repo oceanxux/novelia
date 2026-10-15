@@ -62,6 +62,8 @@ function relTime(ts) {
   return new Date(ts).toLocaleDateString('zh-CN');
 }
 
+const sysconfig = require('./sysconfig');
+
 // 登记/刷新一台设备; 返回该设备记录
 function touch(user, req, explicitId) {
   if (!user) return null;
@@ -87,6 +89,23 @@ function touch(user, req, explicitId) {
   dev.last_active_text = relTime(now);
   dev.ip = clientIp(req);
   dev.platform = parseDeviceName(ua);
+
+  // 刷新所有设备在线态
+  refreshOnline(user);
+
+  // 根据当前系统配置判断是否超过允许的最大在线设备数 (0 为无限制)
+  const cfg = sysconfig.get();
+  const maxOnline = user.is_member ? (cfg.max_devices_member ?? 3) : (cfg.max_devices_normal ?? 1);
+  if (maxOnline > 0) {
+    const onlineDevs = user.devices.filter((d) => d.online && d.id !== dev.id);
+    // 按最后活跃时间升序排序，最久未活跃的优先下线
+    onlineDevs.sort((a, b) => (a.last_active_at || 0) - (b.last_active_at || 0));
+    while (onlineDevs.length >= maxOnline) {
+      const oldest = onlineDevs.shift();
+      if (oldest) oldest.online = false;
+    }
+  }
+
   return dev;
 }
 

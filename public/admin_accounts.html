@@ -92,6 +92,23 @@
         <button class="btn primary" id="changeAdminUserBtn">修改管理员用户名</button>
       </div>
     </div>
+    <div class="toolbar" style="justify-content:space-between;border-top:1px solid var(--line);flex-wrap:wrap;gap:16px;">
+      <div style="display:flex;align-items:center;gap:20px;flex-wrap:wrap;">
+        <div style="display:flex;align-items:center;gap:8px;">
+          <span style="font-weight:600;font-size:13.5px;color:#1e293b;">普通用户设备上限:</span>
+          <input type="number" id="maxDevicesNormalInput" min="0" max="99" style="width:75px;" placeholder="默认1">
+          <span class="muted" style="font-size:12px;">台 (0为不限)</span>
+        </div>
+        <div style="display:flex;align-items:center;gap:8px;">
+          <span style="font-weight:600;font-size:13.5px;color:#1e293b;">会员用户设备上限:</span>
+          <input type="number" id="maxDevicesMemberInput" min="0" max="99" style="width:75px;" placeholder="默认3">
+          <span class="muted" style="font-size:12px;">台 (0为不限)</span>
+        </div>
+      </div>
+      <div>
+        <button class="btn primary" id="saveDeviceLimitsBtn">保存设备限制</button>
+      </div>
+    </div>
   </div>
 
   <div class="panel">
@@ -321,7 +338,33 @@ function updateRegUI() {
     btn.textContent = '开启注册';
     btn.className = 'btn primary';
   }
+
+  const normalInput = $('#maxDevicesNormalInput');
+  const memberInput = $('#maxDevicesMemberInput');
+  if (normalInput) normalInput.value = sysConfig.max_devices_normal !== undefined ? sysConfig.max_devices_normal : 1;
+  if (memberInput) memberInput.value = sysConfig.max_devices_member !== undefined ? sysConfig.max_devices_member : 3;
 }
+
+$('#saveDeviceLimitsBtn').onclick = async () => {
+  const normVal = parseInt($('#maxDevicesNormalInput').value, 10);
+  const membVal = parseInt($('#maxDevicesMemberInput').value, 10);
+  if (isNaN(normVal) || normVal < 0 || isNaN(membVal) || membVal < 0) {
+    Swal.fire({ icon: 'warning', title: '请输入有效的数字', text: '0 代表无限制，或填入正整数', confirmButtonColor: ACC });
+    return;
+  }
+  const r = await AF('/api/config', {
+    method: 'POST',
+    headers: { 'Content-Type': 'application/json' },
+    body: JSON.stringify({ max_devices_normal: normVal, max_devices_member: membVal }),
+  }).then((x) => x.json());
+  if (r.ok && r.config) {
+    sysConfig = r.config;
+    updateRegUI();
+    Swal.fire({ icon: 'success', title: '设备限制已保存', timer: 1500, showConfirmButton: false });
+  } else {
+    Swal.fire({ icon: 'error', title: '保存失败', text: r.error || '网络错误', confirmButtonColor: ACC });
+  }
+};
 
 $('#toggleRegBtn').onclick = async () => {
   const next = !sysConfig.allow_register;

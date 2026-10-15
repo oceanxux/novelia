@@ -176,17 +176,59 @@ function buildFullBookSource(base) {
       .replace(/java\.toast\("您还未登录番茄账号，无法同步数据"\);/g, '// 无需提示');
   }
 
-  // 2. 补全 ruleSearch / ruleBookInfo 字段，确保类型与最新章节正常解析展示
+  // 2. 补全 ruleSearch / ruleBookInfo 字段，保证在 Flutter (源阅/栖阅) 换源时非空，避免 "Null check operator used on a null value"
   if (src.ruleSearch) {
-    src.ruleSearch.kind = '$.tags||$.kind||$.source';
-    src.ruleSearch.lastChapter = '$.latestChapterTitle||{{$.source}}·{{$.latestChapterTitle}}';
+    src.ruleSearch.name = '$.title||$.name||$.book_name||未知书名';
+    src.ruleSearch.author = '$.author||$.writer||未知作者';
+    src.ruleSearch.kind = '$.tags||$.kind||$.source||小说';
+    src.ruleSearch.lastChapter = '$.latestChapterTitle||{{$.source}}·{{$.latestChapterTitle}}||暂无最新章节';
+    // 确保从搜索卡片直达详情时保留 bookid
+    if (src.ruleSearch.bookUrl && typeof src.ruleSearch.bookUrl === 'string') {
+      src.ruleSearch.bookUrl = src.ruleSearch.bookUrl.replace(
+        'let detail = {\n    source: source,\n    url: book_url,\n    cover: cover,\n    desc: desc,\n    name: title\n};',
+        'let detail = {\n    source: source,\n    url: book_url,\n    cover: cover,\n    desc: desc,\n    name: title,\n    bookid: result.bookid || result.book_id || ""\n};'
+      );
+    }
   }
   if (src.ruleBookInfo) {
-    src.ruleBookInfo.kind = '$.tags||$.kind||$.source';
-    src.ruleBookInfo.lastChapter = '$.latestChapterTitle||$.last_chapter_title||$.lastChapter';
+    src.ruleBookInfo.name = '$.title||$.name||$.book_name||未知书名';
+    src.ruleBookInfo.author = '$.author||$.writer||未知作者';
+    src.ruleBookInfo.kind = '$.tags||$.kind||$.source||小说';
+    src.ruleBookInfo.lastChapter = '$.latestChapterTitle||$.last_chapter_title||$.lastChapter||暂无最新章节';
+    if (src.ruleBookInfo.tocUrl && typeof src.ruleBookInfo.tocUrl === 'string') {
+      src.ruleBookInfo.tocUrl = src.ruleBookInfo.tocUrl.replace(
+        'bookid: result.bookid || ""',
+        'bookid: result.bookid || result.book_id || ""'
+      );
+    }
   }
 
-  // 3. 增强正文请求的容错性，避免后端返回 null 时 Rhino 抛出 TypeError: Cannot read property "content" from null
+  // 3. 增强 jsLib 中的 buildChapterUrl，修复番茄章节 /reader/(\\d+) 以及 itemId 提取，避免 item_id 成为 null
+  if (src.jsLib) {
+    src.jsLib = src.jsLib.replace(
+      'chapterParams.item_id = x.url?.match(/item_id=(\\d+)/)?.[1] || null;',
+      'chapterParams.item_id = x.itemId || x.url?.match(/\\/reader\\/(\\d+)/)?.[1] || x.url?.match(/item_id=(\\d+)/)?.[1] || null;'
+    );
+    src.jsLib = src.jsLib.replace(
+      'const itemId = x.url?.match(/item_id=(\\d+)/)?.[1] || null;',
+      'const itemId = x.itemId || x.url?.match(/\\/reader\\/(\\d+)/)?.[1] || x.url?.match(/item_id=(\\d+)/)?.[1] || null;'
+    );
+  }
+
+  // 4. 增强 ruleToc.chapterList，避免 response 为 null 或 response.data 为 null 时崩溃导致“目录加载出错:章节列表为空”
+  if (src.ruleToc && src.ruleToc.chapterList) {
+    const rawChapterList = src.ruleToc.chapterList;
+    const oldParse = 'JSON.parse(response).data.map((x) => {';
+    const safeParse = `let parsedResp = null;
+try { parsedResp = JSON.parse(response); } catch(e) {}
+let rawChapterList = (parsedResp && Array.isArray(parsedResp.data)) ? parsedResp.data : [];
+rawChapterList.map((x) => {`;
+    if (rawChapterList.includes(oldParse)) {
+      src.ruleToc.chapterList = rawChapterList.replace(oldParse, safeParse);
+    }
+  }
+
+  // 5. 增强正文请求的容错性，避免后端返回 null 时 Rhino 抛出 TypeError: Cannot read property "content" from null
   if (src.ruleContent && src.ruleContent.content) {
     const rawContent = src.ruleContent.content;
     const oldFetchCode = 'let response=JSON.parse(java.ajax(chapterUrl));let finalResult=response.data.content;';

@@ -88,11 +88,13 @@ function renderDevices(user) {
   }
   return devices.map((d) => {
     const online = !!d.online;
+    const ipStr = d.ip ? ` · IP: ${esc(d.ip)}` : '';
+    const platformStr = d.platform && d.platform !== d.name ? ` (${esc(d.platform)})` : '';
     return `<div class="device-item" data-device-id="${esc(d.id)}">
         <div class="device-icon"><i class="fas fa-${d.icon || 'mobile-alt'}"></i><span class="device-dot ${online ? 'online' : 'offline'}"></span></div>
         <div class="device-info">
-            <div class="device-name"><span class="device-name-text">${esc(d.name || '未命名设备')}</span></div>
-            <div class="device-meta">${online ? '在线' : '离线'} · 最后活跃 ${esc(d.last_active_text || '未知')}</div>
+            <div class="device-name"><span class="device-name-text">${esc(d.name || '未命名设备')}</span><span class="text-muted" style="font-size:0.75rem;font-weight:400;">${platformStr}</span></div>
+            <div class="device-meta">${online ? '<span style="color:var(--success);font-weight:600;">在线</span>' : '离线'} · 最后活跃 ${esc(d.last_active_text || '未知')}${ipStr}</div>
         </div>
         <div class="device-actions">
             <button class="btn btn-sm rename-device-btn" data-device-id="${esc(d.id)}" data-device-name="${esc(d.name || '')}" title="重命名"><i class="fas fa-pen"></i></button>
@@ -108,6 +110,11 @@ function renderPage(user) {
   const isMember = !!user.is_member;
   devices.refreshOnline(user);
   const devices_ = user.devices || [];
+  const cfg = require('../lib/sysconfig').get();
+  const normalLimitStr = (cfg.max_devices_normal === 0) ? '不限' : `${cfg.max_devices_normal} 台`;
+  const memberLimitStr = (cfg.max_devices_member === 0) ? '不限' : `${cfg.max_devices_member} 台`;
+  const deviceLimitTip = `普通用户限 ${normalLimitStr} 设备在线，会员限 ${memberLimitStr} 设备在线`;
+
   const vars = {
     API_KEY: esc(user.api_key),
     API_KEY_MASKED: esc(maskKey(user.api_key)),
@@ -122,6 +129,7 @@ function renderPage(user) {
     STAT_TODAY: String(user.stat_today || 0),
     STAT_DEVICES: String(devices_.length),
     STAT_STATUS: String(devices_.filter((d) => d.online).length),
+    DEVICE_LIMIT_TIP: esc(deviceLimitTip),
     REGISTERED: fmtDate(user.created_at),
     LAST_USE: user.last_use_at ? fmtDate(user.last_use_at) : '从未',
     DEVICES_HTML: renderDevices(user),
@@ -232,6 +240,15 @@ router.post('/user_center', upload, (req, res) => {
       user.devices = (user.devices || []).filter((d) => d.id !== id);
       store.save();
       return res.json({ success: true, message: '设备已删除' });
+    }
+
+    case 'clear_offline_devices': {
+      devices.refreshOnline(user);
+      const beforeCount = (user.devices || []).length;
+      user.devices = (user.devices || []).filter((d) => d.online);
+      const removedCount = beforeCount - user.devices.length;
+      store.save();
+      return res.json({ success: true, message: `已清理 ${removedCount} 台离线设备` });
     }
 
     case 'update_profile': {

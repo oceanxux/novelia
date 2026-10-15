@@ -33,3 +33,6 @@ novelia-para-comments.md
 
 # Python 虚拟环境
 .venv/
+
+# 本地规则 (仅本地生效, 不上传)
+rules.md
