@@ -149,10 +149,12 @@ function buildFullBookSource(base) {
   }
 
   // 替换 loginUrl 中的外部链接为本站当前服务
+  // 注意: 番茄登录页保持模板里的 https://fanqienovel.com/main/writer/login 不变。
+  // 番茄官方 web 端唯一可用的登录入口就是该地址 (首页/书页的"登录"按钮都跳这里, 含扫码/
+  // 验证码/密码三种方式); 曾误改为 https://fanqienovel.com/login, 该路径实测返回 404。
   if (src.loginUrl) {
     src.loginUrl = src.loginUrl.replace(/https:\/\/fb\.shushan\.vip/g, base + '/booklist_index');
     src.loginUrl = src.loginUrl.replace(/https:\/\/www\.kufaka\.com\/item\/9mbtvr/g, base + '/user_center');
-    src.loginUrl = src.loginUrl.replace(/https:\/\/fanqienovel\.com\/main\/writer\/login/g, 'https://fanqienovel.com/login');
   }
 
   // 替换 loginUi 按钮标题
