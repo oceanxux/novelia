@@ -1,7 +1,5 @@
 // 后台鉴权前端: 登录 / 强制改密 / 请求包装
-// 用法:
-//   AdminAuth.fetch('/api/sources')            // 自动带 X-Admin-Token
-//   AdminAuth.boot(() => { loadList(); });     // 校验会话, 未登录先弹登录框
+// 统一采用方案三清新活泼手帐风格 (米蓝网格 + 和纸胶带 + 便签贴纸 + 软萌按钮)
 (function () {
   const P = (window.__ADMIN_BASE__ || '/admin').replace(/\/+$/, '');
   const KEY = 'zld_admin_token';
@@ -24,71 +22,80 @@
     });
   }
 
-  // ---- 样式 (与前端登录统一的深邃夜空星光极光拟物美学) ----
+  // ---- 样式 (方案三活泼手帐风格) ----
   const css = `
   .zld-mask {
     position: fixed; inset: 0; z-index: 99999; display: flex; align-items: center; justify-content: center;
-    background: #070913; overflow: hidden; font-family: -apple-system, BlinkMacSystemFont, "SF Pro Display", "PingFang SC", "Segoe UI", sans-serif;
-    animation: zldFadeIn .3s ease; padding: 20px;
+    background-color: #eef5fc;
+    background-image: radial-gradient(#cbd5e1 1.2px, transparent 1.2px);
+    background-size: 18px 18px;
+    overflow: hidden; font-family: -apple-system, BlinkMacSystemFont, "SF Pro Display", "PingFang SC", "Segoe UI", sans-serif;
+    animation: zldFadeIn .25s ease; padding: 20px;
   }
   @keyframes zldFadeIn { from { opacity: 0; } to { opacity: 1; } }
-  .zld-bg-canvas { position: absolute; inset: 0; width: 100%; height: 100%; z-index: 1; pointer-events: none; }
-  .zld-orb { position: absolute; border-radius: 50%; filter: blur(100px); pointer-events: none; z-index: 2; opacity: 0.45; }
-  .zld-orb-1 { width: 380px; height: 380px; background: radial-gradient(circle, #6366f1 0%, transparent 70%); top: -10%; right: -5%; }
-  .zld-orb-2 { width: 320px; height: 320px; background: radial-gradient(circle, #ec4899 0%, transparent 70%); bottom: -10%; left: -5%; }
-  
-  .zld-card-wrap { position: relative; z-index: 10; width: 100%; max-width: 430px; }
+
+  .zld-sticker {
+    position: fixed; pointer-events: none; z-index: 1; user-select: none; font-weight: 800;
+    box-shadow: 0 4px 14px rgba(0,0,0,0.06); border-radius: 12px; padding: 6px 14px; font-size: 12px;
+    animation: zldFloat 5s ease-in-out infinite alternate;
+  }
+  .zld-sticker-1 { top: 8%; left: 8%; background: #fef08a; color: #854d0e; border: 1px solid #fde047; transform: rotate(-5deg); }
+  .zld-sticker-2 { bottom: 8%; right: 8%; background: #bae6fd; color: #0369a1; border: 1px solid #7dd3fc; transform: rotate(5deg); animation-delay: -2.5s; }
+  @keyframes zldFloat { 0% { transform: translateY(0px) rotate(var(--r, 0deg)); } 100% { transform: translateY(-8px) rotate(var(--r, 0deg)); } }
+
+  .zld-card-wrap { position: relative; z-index: 10; width: 100%; max-width: 410px; }
+  .zld-tape {
+    position: absolute; top: -12px; left: 50%; transform: translateX(-50%) rotate(-1.5deg);
+    width: 120px; height: 24px; background: rgba(254, 240, 138, 0.95);
+    border-left: 2px dashed rgba(234, 179, 8, 0.4); border-right: 2px dashed rgba(234, 179, 8, 0.4);
+    box-shadow: 0 2px 6px rgba(0, 0, 0, 0.08); z-index: 20; pointer-events: none;
+  }
   .zld-card {
-    background: rgba(22, 27, 46, 0.78);
-    border: 1px solid rgba(255, 255, 255, 0.09);
-    border-radius: 24px; padding: 34px 30px 28px;
-    backdrop-filter: blur(28px) saturate(180%);
-    -webkit-backdrop-filter: blur(28px) saturate(180%);
-    box-shadow: 0 25px 60px rgba(0, 0, 0, 0.55), 0 0 0 1px rgba(255, 255, 255, 0.05) inset;
-    color: #f8fafc;
+    position: relative; background: #ffffff;
+    border: 1.5px solid #dbeafe; border-radius: 26px; padding: 34px 28px 26px;
+    box-shadow: 0 16px 36px -6px rgba(14, 165, 233, 0.12), 0 4px 12px rgba(0,0,0,0.04);
+    color: #1e293b;
   }
   .zld-badge {
-    display: inline-flex; align-items: center; gap: 8px; padding: 6px 14px;
-    background: rgba(255, 255, 255, 0.06); border: 1px solid rgba(255, 255, 255, 0.12);
-    border-radius: 999px; font-size: 12.5px; color: #c7d2fe; margin-bottom: 16px;
+    display: inline-flex; align-items: center; gap: 6px; padding: 4px 12px;
+    background: #f0f9ff; border: 1px solid #bae6fd;
+    border-radius: 999px; font-size: 12px; color: #0284c7; font-weight: 700; margin-bottom: 12px;
   }
   .zld-card h2 {
-    margin: 0 0 6px; font-size: 26px; font-weight: 800; letter-spacing: -.5px;
-    background: linear-gradient(135deg, #ffffff 30%, #a5b4fc 100%);
-    -webkit-background-clip: text; -webkit-text-fill-color: transparent;
+    margin: 0 0 4px; font-size: 24px; font-weight: 900; letter-spacing: -.4px; color: #0f172a;
   }
-  .zld-card p.sub { margin: 0 0 24px; font-size: 13.5px; color: #94a3b8; line-height: 1.5; }
-  .zld-group { margin-bottom: 18px; }
-  .zld-card label { display: block; font-size: 13px; color: #cbd5e1; font-weight: 500; margin-bottom: 8px; }
+  .zld-card p.sub { margin: 0 0 20px; font-size: 13px; color: #64748b; line-height: 1.5; }
+  .zld-group { margin-bottom: 15px; }
+  .zld-card label { display: block; font-size: 12.5px; color: #334155; font-weight: 700; margin-bottom: 6px; }
   .zld-input-wrap { position: relative; display: flex; align-items: center; }
-  .zld-input-wrap .zld-ico { position: absolute; left: 14px; color: #64748b; font-size: 15px; pointer-events: none; }
+  .zld-input-wrap .zld-ico { position: absolute; left: 14px; color: #94a3b8; font-size: 14px; pointer-events: none; }
   .zld-card input {
     width: 100%; box-sizing: border-box;
-    border: 1px solid rgba(255, 255, 255, 0.1); border-radius: 12px;
-    padding: 13px 14px 13px 40px; font-size: 14.5px; font-family: inherit; outline: none;
-    background: rgba(15, 23, 42, 0.6); color: #fff;
-    transition: all .22s ease;
+    border: 1.5px solid #cbd5e1; border-radius: 12px;
+    padding: 11px 14px 11px 38px; font-size: 14px; font-family: inherit; outline: none;
+    background: #f8fafc; color: #0f172a;
+    transition: all .2s ease;
   }
-  .zld-card input::placeholder { color: rgba(148, 163, 184, 0.28); font-size: 13.5px; transition: color .2s; }
-  .zld-card input:focus::placeholder { color: rgba(148, 163, 184, 0.15); }
+  .zld-card input::placeholder { color: #94a3b8; font-size: 13px; }
   .zld-card input:focus {
-    border-color: #818cf8; background: rgba(15, 23, 42, 0.9);
-    box-shadow: 0 0 0 3px rgba(99, 102, 241, 0.25);
+    border-color: #0284c7; background: #ffffff;
+    box-shadow: 0 0 0 3px rgba(2, 132, 199, 0.16);
   }
   .zld-card button.zld-btn-main {
-    width: 100%; border: 0; border-radius: 12px; padding: 13px; font-size: 15px; font-weight: 700;
-    background: linear-gradient(135deg, #6366f1 0%, #8b5cf6 50%, #d946ef 100%);
+    width: 100%; border: 0; border-radius: 14px; padding: 12px; font-size: 14.5px; font-weight: 800;
+    background: linear-gradient(135deg, #0284c7 0%, #0ea5e9 100%);
     color: #fff; cursor: pointer; font-family: inherit;
-    box-shadow: 0 4px 20px rgba(99, 102, 241, 0.38); transition: all .28s ease; margin-top: 10px;
+    box-shadow: 0 4px 16px rgba(2, 132, 199, 0.35); transition: all .22s ease; margin-top: 14px;
     display: flex; align-items: center; justify-content: center; gap: 8px;
   }
   .zld-card button.zld-btn-main:hover:not(:disabled) {
-    transform: translateY(-2px); box-shadow: 0 8px 28px rgba(99, 102, 241, 0.52);
+    transform: translateY(-2px); box-shadow: 0 8px 24px rgba(2, 132, 199, 0.45);
   }
+  .zld-card button.zld-btn-main:active:not(:disabled) { transform: scale(0.98); }
   .zld-card button.zld-btn-main:disabled { opacity: .55; cursor: default; transform: none; }
-  .zld-err { color: #f87171; font-size: 12.5px; min-height: 18px; margin: 4px 0 10px; font-weight: 500; }
-  .zld-hint { color: #64748b; font-size: 12.5px; margin-top: 18px; text-align: center; }
-  .zld-hint a { color: #818cf8; text-decoration: none; margin-left: 8px; }
+  .zld-err { color: #ef4444; font-size: 12.5px; min-height: 18px; margin: 4px 0 6px; font-weight: 700; }
+  .zld-hint { color: #64748b; font-size: 12.5px; margin-top: 16px; text-align: center; }
+  .zld-hint a { color: #0284c7; text-decoration: none; font-weight: 700; margin-left: 6px; }
   .zld-hint a:hover { text-decoration: underline; }
   `;
   const style = document.createElement('style');
@@ -96,61 +103,20 @@
   document.head.appendChild(style);
 
   let mask = null;
-  let animId = null;
-
-  function close() {
-    if (animId) { cancelAnimationFrame(animId); animId = null; }
-    if (mask) { mask.remove(); mask = null; }
-  }
-
-  function startCanvasAnim(canvas) {
-    if (!canvas) return;
-    const ctx = canvas.getContext('2d');
-    let w, h;
-    function resize() { w = canvas.width = window.innerWidth; h = canvas.height = window.innerHeight; }
-    resize();
-    window.addEventListener('resize', resize);
-    const pts = [];
-    for (let i = 0; i < 60; i++) {
-      pts.push({ x: Math.random() * w, y: Math.random() * h, r: Math.random() * 1.6 + .6, vx: (Math.random() - .5) * .35, vy: (Math.random() - .5) * .35, alpha: Math.random() * .5 + .2 });
-    }
-    function draw() {
-      ctx.clearRect(0, 0, w, h);
-      for (let i = 0; i < pts.length; i++) {
-        const p = pts[i];
-        p.x += p.vx; p.y += p.vy;
-        if (p.x < 0) p.x = w; if (p.x > w) p.x = 0;
-        if (p.y < 0) p.y = h; if (p.y > h) p.y = 0;
-        ctx.beginPath(); ctx.arc(p.x, p.y, p.r, 0, Math.PI * 2);
-        ctx.fillStyle = `rgba(165, 180, 252, ${p.alpha})`; ctx.fill();
-      }
-      for (let i = 0; i < pts.length; i++) {
-        for (let j = i + 1; j < pts.length; j++) {
-          const dx = pts[i].x - pts[j].x, dy = pts[i].y - pts[j].y;
-          const dist = Math.sqrt(dx * dx + dy * dy);
-          if (dist < 110) {
-            ctx.beginPath(); ctx.moveTo(pts[i].x, pts[i].y); ctx.lineTo(pts[j].x, pts[j].y);
-            ctx.strokeStyle = `rgba(99, 102, 241, ${(1 - dist / 110) * 0.16})`; ctx.lineWidth = .6; ctx.stroke();
-          }
-        }
-      }
-      animId = requestAnimationFrame(draw);
-    }
-    draw();
-  }
 
   function mount(innerHtml) {
     close();
     mask = document.createElement('div');
     mask.className = 'zld-mask';
     mask.innerHTML = `
-      <canvas class="zld-bg-canvas" id="zld-canvas"></canvas>
-      <div class="zld-orb zld-orb-1"></div>
-      <div class="zld-orb zld-orb-2"></div>
-      <div class="zld-card-wrap">${innerHtml}</div>
+      <div class="zld-sticker zld-sticker-1" style="--r:-5deg;">🛡️ 管理工作台</div>
+      <div class="zld-sticker zld-sticker-2" style="--r:5deg;">⚡ Novelia Studio</div>
+      <div class="zld-card-wrap">
+        <div class="zld-tape"></div>
+        ${innerHtml}
+      </div>
     `;
     document.body.appendChild(mask);
-    startCanvasAnim(mask.querySelector('#zld-canvas'));
     return mask;
   }
 
@@ -158,31 +124,30 @@
   function showLogin(msg) {
     const m = mount(`<div class="zld-card">
       <div class="zld-badge">
-        <i class="fas fa-shield-halved"></i>
-        <span>Novelia · 控制中心</span>
+        <span>⚙️ Novelia 控制中心</span>
       </div>
       <h2>管理后台登录</h2>
-      <p class="sub">Novelia 管理控制台 · 请验证管理员身份</p>
+      <p class="sub">请验证管理员权限以管理书源与账号</p>
       <div class="zld-group">
         <label>管理账号</label>
         <div class="zld-input-wrap">
           <span class="zld-ico">👤</span>
-          <input id="zld_u" autocomplete="username" placeholder="admin">
+          <input id="zld_u" autocomplete="username" placeholder="输入管理用户名">
         </div>
       </div>
       <div class="zld-group">
         <label>管理密码</label>
         <div class="zld-input-wrap">
           <span class="zld-ico">🔒</span>
-          <input id="zld_p" type="password" autocomplete="current-password" placeholder="admin123">
+          <input id="zld_p" type="password" autocomplete="current-password" placeholder="输入管理密码">
         </div>
       </div>
       <div class="zld-err" id="zld_e">${esc(msg || '')}</div>
       <button class="zld-btn-main" id="zld_go">
         <span>立即登录</span>
-        <span style="font-size:16px;">→</span>
+        <span style="font-size:15px;">→</span>
       </button>
-      <div class="zld-hint"><a href="/booklist_index">← 返回前台书架</a></div>
+      <div class="zld-hint"><a href="/booklist_index">← 返回首页</a></div>
     </div>`);
     const u = m.querySelector('#zld_u'), p = m.querySelector('#zld_p'), e = m.querySelector('#zld_e'), b = m.querySelector('#zld_go');
     u.focus();
@@ -199,7 +164,7 @@
         if (!r.ok) {
           e.textContent = j.message || '登录失败，请检查账号密码';
           b.disabled = false;
-          b.innerHTML = '<span>立即登录</span><span style="font-size:16px;">→</span>';
+          b.innerHTML = '<span>立即登录</span><span style="font-size:15px;">→</span>';
           return;
         }
         setToken(j.token);
@@ -208,7 +173,7 @@
       } catch (err) {
         e.textContent = '网络连接异常，请重试';
         b.disabled = false;
-        b.innerHTML = '<span>立即登录</span><span style="font-size:16px;">→</span>';
+        b.innerHTML = '<span>立即登录</span><span style="font-size:15px;">→</span>';
       }
     };
     b.onclick = submit;
@@ -218,8 +183,8 @@
   // ---- 强制改密框 ----
   function showChange(msg) {
     const m = mount(`<div class="zld-card">
-      <div class="zld-badge" style="color:#fcd34d;border-color:rgba(252,211,77,0.3);background:rgba(252,211,77,0.08);">
-        <span>⚠️ 安全保障</span>
+      <div class="zld-badge" style="color:#b45309;border-color:#fde047;background:#fef9c3;">
+        <span>⚠️ 安全防护</span>
       </div>
       <h2>修改初始密码</h2>
       <p class="sub">${esc(msg || '首次登录系统，请修改默认初始密码')}</p>
@@ -247,53 +212,69 @@
       <div class="zld-err" id="zld_e"></div>
       <button class="zld-btn-main" id="zld_go">
         <span>确认并提交修改</span>
-        <span style="font-size:16px;">✓</span>
+        <span style="font-size:15px;">✓</span>
       </button>
-      <div class="zld-hint">修改完成后旧凭据作废，需使用新密码重新登录</div>
     </div>`);
-    const o = m.querySelector('#zld_o'), n1 = m.querySelector('#zld_n1'), n2 = m.querySelector('#zld_n2'), e = m.querySelector('#zld_e'), b = m.querySelector('#zld_go');
+    const o = m.querySelector('#zld_o'), n1 = m.querySelector('#zld_n1'), n2 = m.querySelector('#zld_n2');
+    const e = m.querySelector('#zld_e'), b = m.querySelector('#zld_go');
     o.focus();
     b.onclick = async () => {
       e.textContent = '';
+      if (!o.value || !n1.value) { e.textContent = '请填写全部字段'; return; }
       if (n1.value !== n2.value) { e.textContent = '两次输入的新密码不一致'; return; }
+      if (n1.value.length < 8) { e.textContent = '新密码至少需 8 位'; return; }
       b.disabled = true;
-      b.innerHTML = '<span>提交中...</span>';
+      b.innerHTML = '<span>修改中...</span>';
       try {
-        const r = await api('/api/auth/change_password', {
-          method: 'POST', headers: { 'Content-Type': 'application/json' },
+        const r = await fetch(P + '/api/auth/change_password', {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json', 'X-Admin-Token': token },
           body: JSON.stringify({ old_password: o.value, new_password: n1.value }),
         });
         const j = await r.json().catch(() => ({}));
         if (!r.ok) {
           e.textContent = j.message || '修改失败';
           b.disabled = false;
-          b.innerHTML = '<span>确认并提交修改</span>';
+          b.innerHTML = '<span>确认并提交修改</span><span>✓</span>';
           return;
         }
-        setToken(''); // 改密后旧会话作废, 重新登录
-        showLogin('密码已成功修改, 请使用新密码登录');
+        onReady();
       } catch (err) {
-        e.textContent = '网络错误';
+        e.textContent = '网络异常，请重试';
         b.disabled = false;
-        b.innerHTML = '<span>确认并提交修改</span>';
+        b.innerHTML = '<span>确认并提交修改</span><span>✓</span>';
       }
     };
   }
 
-  let readyCb = null;
-  function onReady() { close(); if (readyCb) readyCb(); }
+  function close() {
+    if (mask) { mask.remove(); mask = null; }
+  }
 
-  // 启动: 校验会话 -> 未登录/需改密则弹框, 通过后执行 cb
+  let readyCb = null;
+  function onReady() {
+    close();
+    if (typeof readyCb === 'function') readyCb();
+  }
+
+  // ---- 页面就绪检查 ----
   function boot(cb) {
     readyCb = cb;
     if (!token) { showLogin(); return; }
-    api('/api/auth/status').then(async (r) => {
-      if (!r.ok) { showLogin(); return; }
-      const j = await r.json().catch(() => ({}));
-      if (j.must_change_password) { showChange('首次登录, 请先修改初始密码'); return; }
-      onReady();
-    }).catch(() => showLogin());
+    fetch(P + '/api/auth/status', { headers: { 'X-Admin-Token': token } })
+      .then((r) => r.json().catch(() => ({})))
+      .then((j) => {
+        if (j.code !== 200) { setToken(''); showLogin(); return; }
+        if (j.must_change_password) { showChange('必须先修改初始密码后方可进入管理后台'); return; }
+        onReady();
+      })
+      .catch(() => { setToken(''); showLogin(); });
   }
 
-  window.AdminAuth = { fetch: api, boot, path: P, logout: () => { setToken(''); showLogin(); } };
+  function logout() {
+    fetch(P + '/api/auth/logout', { method: 'POST', headers: { 'X-Admin-Token': token } })
+      .finally(() => { setToken(''); showLogin('已安全退出登录'); });
+  }
+
+  window.AdminAuth = { fetch: api, boot, logout, setToken, getToken: () => token };
 })();

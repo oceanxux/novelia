@@ -13,34 +13,56 @@ function clientIp(req) {
   return ip.replace(/^::ffff:/, '');
 }
 
-function parseDeviceName(ua) {
+function parseDeviceName(ua, req) {
   const s = String(ua || '');
-  if (/iPhone OS (\d+[_.]\d+)/i.test(s)) {
-    const v = s.match(/iPhone OS (\d+[_.]\d+)/i)[1].replace(/_/g, '.');
-    return `iPhone (iOS ${v})`;
+  // 优先检测是否附带 Reader App 名称 (源阅, 栖阅, 泛阅, Legado, 搜书大师, 爱读, OkHttp 等)
+  let appName = '';
+  if (/源阅/i.test(s)) appName = '源阅';
+  else if (/栖阅/i.test(s)) appName = '栖阅';
+  else if (/Legado/i.test(s)) appName = 'Legado 阅读';
+  else if (/okhttp|yuedu/i.test(s)) appName = '阅读 App';
+  else if (/爱读|用心读书|轻悦/i.test(s)) {
+    const m = s.match(/(爱读|用心读书|轻悦(?:时光)?)/i);
+    if (m) appName = m[1];
   }
-  if (/iPad.*OS (\d+[_.]\d+)/i.test(s)) {
-    const v = s.match(/OS (\d+[_.]\d+)/i)[1].replace(/_/g, '.');
-    return `iPad (iPadOS ${v})`;
-  }
-  if (/Android\s*([\d.]+)?/i.test(s)) {
+
+  // 设备/系统型号识别
+  let osStr = '';
+  if (/iPhone/i.test(s)) {
+    const vMatch = s.match(/OS (\d+[_.]\d+(?:[_.]\d+)?)/i);
+    const v = vMatch ? vMatch[1].replace(/_/g, '.') : '';
+    // 如果版本号过于离谱(例如未来假版本)或正常版本，格式化呈现
+    osStr = v ? `iPhone · iOS ${v}` : 'iPhone';
+  } else if (/iPad/i.test(s)) {
+    const vMatch = s.match(/OS (\d+[_.]\d+)/i);
+    const v = vMatch ? vMatch[1].replace(/_/g, '.') : '';
+    osStr = v ? `iPad · iPadOS ${v}` : 'iPad';
+  } else if (/Android/i.test(s)) {
     const m = s.match(/Android\s*([\d.]+)?/i);
     const model = s.match(/;\s*([^;)]+)\s*Build/i);
-    const modelStr = model ? ' ' + model[1].trim() : '';
-    return 'Android' + (m && m[1] ? ' ' + m[1] : '') + modelStr;
+    const modelStr = model ? model[1].trim() : '';
+    const ver = m && m[1] ? `Android ${m[1]}` : 'Android';
+    osStr = modelStr ? `${modelStr} (${ver})` : ver;
+  } else if (/Macintosh|Mac OS X/i.test(s)) {
+    osStr = 'macOS';
+  } else if (/Windows NT/i.test(s)) {
+    osStr = 'Windows';
+  } else if (/Linux/i.test(s)) {
+    osStr = 'Linux';
   }
-  if (/Macintosh|Mac OS X/i.test(s)) return 'Mac 浏览器';
-  if (/Windows NT/i.test(s)) return 'Windows 浏览器';
-  if (/Linux/i.test(s)) return 'Linux 客户端';
-  if (/okhttp|legado|yuedu/i.test(s)) return '阅读 App';
-  return '移动端设备';
+
+  if (appName && osStr) {
+    return `${appName} (${osStr})`;
+  }
+  return appName || osStr || '移动设备';
 }
 
 function parseDeviceIcon(ua) {
   const s = String(ua || '');
-  if (/iPhone|iPad|iPod|Android|Mobile/i.test(s)) return 'mobile-alt';
+  if (/iPad|Tablet/i.test(s)) return 'tablet-alt';
+  if (/iPhone|Android|Mobile|源阅|栖阅/i.test(s)) return 'mobile-alt';
   if (/Macintosh|Windows|Linux/i.test(s)) return 'laptop';
-  return 'tablet-alt';
+  return 'mobile-alt';
 }
 
 // 设备码来源: 优先显式传入 (登录体 device_id), 其次请求头 X-Device-Id / device-id。

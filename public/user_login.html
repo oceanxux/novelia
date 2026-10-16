@@ -5,18 +5,18 @@
 <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no, viewport-fit=cover">
 <link rel="icon" type="image/svg+xml" href="/image/logo.svg">
 <link rel="alternate icon" href="/favicon.ico">
-<title>Novelia · 探索数字阅界</title>
+<title>Novelia · 账户中心</title>
 <link rel="stylesheet" href="/css/all.min.css">
 <style>
 :root {
-  --primary: #6366f1;
-  --primary-glow: rgba(99, 102, 241, 0.35);
-  --accent: #8b5cf6;
-  --bg-dark: #070913;
-  --card-bg: rgba(22, 27, 46, 0.75);
-  --card-border: rgba(255, 255, 255, 0.08);
-  --text-primary: #f8fafc;
-  --text-muted: #94a3b8;
+  --primary: #0284c7;
+  --primary-hover: #0369a1;
+  --accent: #f59e0b;
+  --bg-grid: #eef5fc;
+  --card-bg: #ffffff;
+  --text-main: #1e293b;
+  --text-sub: #64748b;
+  --border-card: #e2e8f0;
 }
 
 * {
@@ -28,8 +28,8 @@
 
 body {
   font-family: -apple-system, BlinkMacSystemFont, "SF Pro Display", "PingFang SC", "Segoe UI", Roboto, sans-serif;
-  background-color: var(--bg-dark);
-  color: var(--text-primary);
+  background-color: var(--bg-grid);
+  color: var(--text-main);
   min-height: 100vh;
   min-height: 100dvh;
   display: flex;
@@ -39,48 +39,63 @@ body {
   overflow-x: hidden;
   padding: 24px 16px;
   -webkit-font-smoothing: antialiased;
+  /* 手帐网格纹理底纹 */
+  background-image: radial-gradient(#cbd5e1 1.2px, transparent 1.2px);
+  background-size: 18px 18px;
 }
 
-/* 动态光晕与星光背景画布 */
-canvas#bg-canvas {
+/* 趣味漂浮手帐贴纸与小标签 */
+.sticker {
   position: fixed;
-  inset: 0;
-  width: 100%;
-  height: 100%;
-  z-index: 0;
   pointer-events: none;
+  z-index: 1;
+  user-select: none;
+  font-weight: 800;
+  box-shadow: 0 4px 14px rgba(0,0,0,0.06);
+  border-radius: 12px;
+  padding: 6px 14px;
+  font-size: 12px;
+  animation: floatSlow 6s ease-in-out infinite alternate;
+}
+.sticker-1 {
+  top: 8%;
+  left: 6%;
+  background: #fef08a;
+  color: #854d0e;
+  border: 1px solid #fde047;
+  transform: rotate(-6deg);
+}
+.sticker-2 {
+  bottom: 8%;
+  right: 6%;
+  background: #fbcfe8;
+  color: #9d174d;
+  border: 1px solid #f472b6;
+  transform: rotate(5deg);
+  animation-delay: -3s;
+}
+.sticker-3 {
+  top: 14%;
+  right: 8%;
+  background: #bae6fd;
+  color: #0369a1;
+  border: 1px solid #7dd3fc;
+  transform: rotate(4deg);
+  animation-delay: -1.5s;
+}
+.sticker-4 {
+  bottom: 12%;
+  left: 7%;
+  background: #bbf7d0;
+  color: #166534;
+  border: 1px solid #86efac;
+  transform: rotate(-4deg);
+  animation-delay: -4.5s;
 }
 
-/* 氛围光团 */
-.glow-orb {
-  position: fixed;
-  border-radius: 50%;
-  filter: blur(100px);
-  pointer-events: none;
-  z-index: 0;
-  opacity: 0.45;
-  animation: floatOrb 16s ease-in-out infinite alternate;
-}
-.glow-orb-1 {
-  width: 380px;
-  height: 380px;
-  background: radial-gradient(circle, #6366f1 0%, transparent 70%);
-  top: -10%;
-  right: -5%;
-}
-.glow-orb-2 {
-  width: 320px;
-  height: 320px;
-  background: radial-gradient(circle, #ec4899 0%, transparent 70%);
-  bottom: -10%;
-  left: -5%;
-  animation-delay: -8s;
-}
-
-@keyframes floatOrb {
-  0% { transform: translate(0, 0) scale(1); }
-  50% { transform: translate(-30px, 40px) scale(1.1); }
-  100% { transform: translate(25px, -20px) scale(0.95); }
+@keyframes floatSlow {
+  0% { transform: translateY(0px) rotate(var(--rot, 0deg)); }
+  100% { transform: translateY(-10px) rotate(var(--rot, 0deg)); }
 }
 
 /* 核心容器 */
@@ -88,103 +103,122 @@ canvas#bg-canvas {
   position: relative;
   z-index: 10;
   width: 100%;
-  max-width: 440px;
+  max-width: 410px;
   margin: 0 auto;
+}
+
+/* 顶部的和纸胶带装饰 */
+.washi-tape {
+  position: absolute;
+  top: -13px;
+  left: 50%;
+  transform: translateX(-50%) rotate(-1.5deg);
+  width: 140px;
+  height: 26px;
+  background: rgba(254, 240, 138, 0.95);
+  border-left: 2px dashed rgba(234, 179, 8, 0.5);
+  border-right: 2px dashed rgba(234, 179, 8, 0.5);
+  box-shadow: 0 2px 6px rgba(0, 0, 0, 0.08);
+  z-index: 20;
+  pointer-events: none;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  font-size: 11px;
+  font-weight: 800;
+  letter-spacing: 1px;
+  color: #854d0e;
+  user-select: none;
 }
 
 /* 品牌头部 */
 .brand-header {
   text-align: center;
-  margin-bottom: 24px;
+  margin-bottom: 20px;
 }
 .brand-badge {
   display: inline-flex;
   align-items: center;
-  gap: 8px;
-  padding: 6px 14px;
-  background: rgba(255, 255, 255, 0.05);
-  border: 1px solid rgba(255, 255, 255, 0.1);
+  gap: 6px;
+  padding: 5px 14px;
+  background: #ffffff;
+  border: 1.5px solid #e2e8f0;
   border-radius: 999px;
-  font-size: 13px;
-  color: #c7d2fe;
-  margin-bottom: 12px;
-  backdrop-filter: blur(8px);
+  font-size: 12.5px;
+  color: #0284c7;
+  font-weight: 700;
+  margin-bottom: 10px;
+  box-shadow: 0 2px 8px rgba(0,0,0,0.03);
 }
-.brand-badge .icon-spin {
-  display: inline-block;
-  color: #818cf8;
+.brand-badge i {
+  color: #0284c7;
 }
 .brand-title {
-  font-size: 32px;
-  font-weight: 800;
-  letter-spacing: -0.6px;
-  background: linear-gradient(135deg, #ffffff 30%, #a5b4fc 100%);
-  -webkit-background-clip: text;
-  -webkit-text-fill-color: transparent;
-  margin-bottom: 6px;
+  font-size: 27px;
+  font-weight: 900;
+  letter-spacing: -0.4px;
+  color: #0f172a;
+  margin-bottom: 4px;
 }
 .brand-sub {
-  font-size: 14px;
-  color: var(--text-muted);
+  font-size: 13px;
+  color: var(--text-sub);
 }
 
-/* 玻璃质感主卡片 */
+/* 手帐质感主卡片 */
 .auth-card {
+  position: relative;
   background: var(--card-bg);
-  border: 1px solid var(--card-border);
-  border-radius: 24px;
-  padding: 30px 28px 24px;
-  backdrop-filter: blur(28px) saturate(180%);
-  -webkit-backdrop-filter: blur(28px) saturate(180%);
-  box-shadow: 0 20px 50px rgba(0, 0, 0, 0.45), 0 0 0 1px rgba(255, 255, 255, 0.05) inset;
-  transition: transform 0.3s cubic-bezier(0.16, 1, 0.3, 1);
+  border: 1.5px solid #dbeafe;
+  border-radius: 26px;
+  padding: 32px 26px 24px;
+  box-shadow: 0 16px 36px -6px rgba(14, 165, 233, 0.12), 0 4px 12px rgba(0,0,0,0.04);
+  transition: transform 0.25s ease;
 }
 
 /* 选项卡 Tab 控制 */
 .tab-pills {
   display: flex;
-  background: rgba(0, 0, 0, 0.28);
+  background: #f1f5f9;
   padding: 4px;
   border-radius: 14px;
-  margin-bottom: 26px;
-  border: 1px solid rgba(255, 255, 255, 0.05);
+  margin-bottom: 22px;
+  border: 1px solid #e2e8f0;
 }
 .tab-btn {
   flex: 1;
-  padding: 10px 0;
+  padding: 9px 0;
   background: transparent;
   border: none;
-  font-size: 14px;
-  font-weight: 600;
-  color: var(--text-muted);
+  font-size: 13.5px;
+  font-weight: 700;
+  color: var(--text-sub);
   border-radius: 10px;
   cursor: pointer;
-  transition: all 0.25s ease;
+  transition: all 0.22s ease;
   font-family: inherit;
 }
 .tab-btn.active {
-  background: rgba(255, 255, 255, 0.12);
-  color: #fff;
-  box-shadow: 0 2px 8px rgba(0,0,0,0.25);
+  background: #ffffff;
+  color: #0284c7;
+  box-shadow: 0 3px 10px rgba(0, 0, 0, 0.08);
 }
 
-/* 注册关闭时, 首屏 (JS 执行前) 即隐藏注册入口, 避免闪烁 */
+/* 注册关闭时, 隐藏注册入口与无意义单行 Tab */
 body.no-register #btn-tab-reg,
 body.no-register .reg-entry { display: none !important; }
-/* 注册关闭后仅剩"登录"一个标签, 整行标签无意义, 一并隐藏 */
 body.no-register .tab-pills { display: none !important; }
 
 /* 表单与输入框设计 */
 .form-group {
-  margin-bottom: 18px;
+  margin-bottom: 16px;
 }
 .form-label {
   display: block;
-  font-size: 13px;
-  font-weight: 500;
-  color: #cbd5e1;
-  margin-bottom: 7px;
-  letter-spacing: 0.2px;
+  font-size: 12.5px;
+  font-weight: 700;
+  color: #334155;
+  margin-bottom: 6px;
 }
 .input-control {
   position: relative;
@@ -194,47 +228,47 @@ body.no-register .tab-pills { display: none !important; }
 .input-control .field-icon {
   position: absolute;
   left: 14px;
-  color: #64748b;
+  color: #94a3b8;
   font-size: 14px;
   pointer-events: none;
   transition: color 0.2s ease;
 }
 .input-control input {
   width: 100%;
-  padding: 13px 40px 13px 40px;
-  background: rgba(15, 23, 42, 0.55);
-  border: 1px solid rgba(255, 255, 255, 0.1);
+  padding: 12px 40px 12px 40px;
+  background: #f8fafc;
+  border: 1.5px solid #cbd5e1;
   border-radius: 12px;
-  font-size: 14.5px;
-  color: #fff;
+  font-size: 14px;
+  color: #0f172a;
   font-family: inherit;
   outline: none;
-  transition: all 0.22s ease;
+  transition: all 0.2s ease;
 }
 .input-control input:focus {
-  border-color: #818cf8;
-  background: rgba(15, 23, 42, 0.85);
-  box-shadow: 0 0 0 3px rgba(99, 102, 241, 0.22);
+  border-color: #0284c7;
+  background: #ffffff;
+  box-shadow: 0 0 0 3px rgba(2, 132, 199, 0.16);
 }
 .input-control input:focus ~ .field-icon {
-  color: #a5b4fc;
+  color: #0284c7;
 }
 .input-control input::placeholder {
-  color: rgba(148, 163, 184, 0.4);
+  color: #94a3b8;
 }
 .input-control .eye-toggle {
   position: absolute;
   right: 12px;
   background: none;
   border: none;
-  color: #64748b;
+  color: #94a3b8;
   font-size: 14px;
   padding: 6px;
   cursor: pointer;
   transition: color 0.2s ease;
 }
 .input-control .eye-toggle:hover {
-  color: #cbd5e1;
+  color: #0284c7;
 }
 
 .input-hint {
@@ -244,34 +278,32 @@ body.no-register .tab-pills { display: none !important; }
   padding-left: 2px;
 }
 
-/* 主提交按钮 */
+/* 主提交按钮 (活泼手帐胶囊果冻感) */
 .submit-btn {
   width: 100%;
   padding: 13px 18px;
   border: none;
-  border-radius: 12px;
-  background: linear-gradient(135deg, #6366f1 0%, #8b5cf6 50%, #d946ef 100%);
-  background-size: 200% auto;
+  border-radius: 14px;
+  background: linear-gradient(135deg, #0284c7 0%, #0ea5e9 100%);
   color: #fff;
-  font-size: 15px;
-  font-weight: 600;
+  font-size: 14.5px;
+  font-weight: 800;
   letter-spacing: 0.3px;
   cursor: pointer;
-  box-shadow: 0 4px 20px var(--primary-glow);
-  transition: all 0.3s cubic-bezier(0.16, 1, 0.3, 1);
+  box-shadow: 0 4px 16px rgba(2, 132, 199, 0.35);
+  transition: all 0.25s ease;
   display: flex;
   align-items: center;
   justify-content: center;
   gap: 8px;
-  margin-top: 24px;
+  margin-top: 20px;
 }
 .submit-btn:hover:not(:disabled) {
   transform: translateY(-2px);
-  box-shadow: 0 8px 28px rgba(99, 102, 241, 0.5);
-  background-position: right center;
+  box-shadow: 0 8px 24px rgba(2, 132, 199, 0.45);
 }
 .submit-btn:active:not(:disabled) {
-  transform: translateY(0);
+  transform: scale(0.98);
 }
 .submit-btn:disabled {
   opacity: 0.55;
@@ -296,14 +328,15 @@ body.no-register .tab-pills { display: none !important; }
 .auth-links {
   display: flex;
   align-items: center;
-  justify-content: space-between;
-  margin-top: 20px;
-  padding-top: 18px;
-  border-top: 1px solid rgba(255, 255, 255, 0.06);
+  justify-content: flex-end;
+  margin-top: 18px;
+  padding-top: 16px;
+  border-top: 1px dashed #e2e8f0;
   font-size: 13px;
 }
 .auth-links a, .auth-links button {
-  color: #94a3b8;
+  color: #0284c7;
+  font-weight: 700;
   text-decoration: none;
   background: none;
   border: none;
@@ -313,7 +346,8 @@ body.no-register .tab-pills { display: none !important; }
   transition: color 0.2s ease;
 }
 .auth-links a:hover, .auth-links button:hover {
-  color: #e2e8f0;
+  text-decoration: underline;
+  color: #0369a1;
 }
 
 /* 步骤切换容器 */
@@ -322,7 +356,7 @@ body.no-register .tab-pills { display: none !important; }
 }
 .step-pane.active {
   display: block;
-  animation: fadeIn 0.28s ease;
+  animation: fadeIn 0.24s ease;
 }
 @keyframes fadeIn {
   from { opacity: 0; transform: translateY(6px); }
@@ -334,14 +368,15 @@ body.no-register .tab-pills { display: none !important; }
   text-align: center;
   margin-top: 14px;
   font-size: 13px;
-  color: var(--text-muted);
+  color: var(--text-sub);
 }
 .countdown-box span {
-  color: #818cf8;
-  font-weight: 600;
+  color: #0284c7;
+  font-weight: 700;
 }
 .countdown-box a {
-  color: #818cf8;
+  color: #0284c7;
+  font-weight: 700;
   text-decoration: none;
   cursor: pointer;
 }
@@ -352,70 +387,68 @@ body.no-register .tab-pills { display: none !important; }
 .back-btn-row a {
   color: #64748b;
   font-size: 13px;
+  font-weight: 600;
   text-decoration: none;
-  transition: color 0.2s;
 }
 .back-btn-row a:hover {
-  color: #cbd5e1;
+  color: #0284c7;
 }
 
 /* 成功状态展示 */
 .success-card {
   text-align: center;
-  padding: 12px 0;
+  padding: 10px 0;
 }
 .success-icon-wrap {
-  width: 64px;
-  height: 64px;
-  background: rgba(34, 197, 94, 0.15);
-  border: 1px solid rgba(34, 197, 94, 0.3);
+  width: 60px;
+  height: 60px;
+  background: #dcfce7;
+  border: 2px solid #86efac;
   border-radius: 50%;
   display: inline-flex;
   align-items: center;
   justify-content: center;
-  color: #4ade80;
-  font-size: 28px;
-  margin-bottom: 16px;
-  box-shadow: 0 0 20px rgba(34, 197, 94, 0.25);
+  color: #16a34a;
+  font-size: 26px;
+  margin-bottom: 14px;
 }
 .success-title {
-  font-size: 20px;
-  font-weight: 700;
-  margin-bottom: 8px;
-  color: #f8fafc;
+  font-size: 19px;
+  font-weight: 800;
+  margin-bottom: 6px;
+  color: #0f172a;
 }
 .success-desc {
-  font-size: 13.5px;
-  color: #94a3b8;
+  font-size: 13px;
+  color: #64748b;
   line-height: 1.6;
-  margin-bottom: 20px;
+  margin-bottom: 18px;
 }
 .success-box {
-  background: rgba(0, 0, 0, 0.3);
-  border: 1px solid rgba(255, 255, 255, 0.06);
+  background: #f8fafc;
+  border: 1px dashed #cbd5e1;
   border-radius: 12px;
-  padding: 14px;
+  padding: 12px;
   text-align: left;
-  font-size: 12.5px;
-  color: #cbd5e1;
+  font-size: 12px;
+  color: #475569;
   line-height: 1.8;
-  margin-bottom: 22px;
+  margin-bottom: 20px;
 }
 
 /* Toast 提示 */
 .custom-toast {
   position: fixed;
-  top: 28px;
+  top: 24px;
   left: 50%;
   transform: translateX(-50%) translateY(-100px);
-  padding: 12px 24px;
+  padding: 11px 22px;
   border-radius: 999px;
   font-size: 13.5px;
-  font-weight: 500;
+  font-weight: 700;
   color: #fff;
   z-index: 9999;
-  box-shadow: 0 10px 30px rgba(0,0,0,0.5);
-  backdrop-filter: blur(12px);
+  box-shadow: 0 10px 25px rgba(0,0,0,0.18);
   transition: transform 0.35s cubic-bezier(0.16, 1, 0.3, 1);
   display: flex;
   align-items: center;
@@ -426,58 +459,50 @@ body.no-register .tab-pills { display: none !important; }
   transform: translateX(-50%) translateY(0);
 }
 .custom-toast.success {
-  background: rgba(16, 185, 129, 0.9);
-  border: 1px solid rgba(52, 211, 153, 0.4);
+  background: #10b981;
 }
 .custom-toast.error {
-  background: rgba(239, 68, 68, 0.9);
-  border: 1px solid rgba(248, 113, 113, 0.4);
+  background: #ef4444;
 }
 .custom-toast.info {
-  background: rgba(99, 102, 241, 0.9);
-  border: 1px solid rgba(165, 180, 252, 0.4);
+  background: #0284c7;
 }
 
-/* 底部极简版权 */
+/* 底部提示 */
 .auth-footer {
   text-align: center;
-  margin-top: 24px;
+  margin-top: 20px;
   font-size: 12px;
-  color: #64748b;
-}
-
-@media (max-width: 480px) {
-  .auth-card {
-    padding: 24px 20px 20px;
-    border-radius: 20px;
-  }
-  .brand-title {
-    font-size: 26px;
-  }
+  color: #94a3b8;
+  font-weight: 500;
 }
 </style>
 </head>
 <body class="__NO_REGISTER_CLASS__">
 
-<canvas id="bg-canvas"></canvas>
-<div class="glow-orb glow-orb-1"></div>
-<div class="glow-orb glow-orb-2"></div>
+<!-- 趣味手帐飘落小贴纸 -->
+<div class="sticker sticker-1" style="--rot:-6deg;">🎐 读点好书</div>
+<div class="sticker sticker-2" style="--rot:5deg;">☕ 墨香慢品</div>
+<div class="sticker sticker-3" style="--rot:4deg;">📖 跨端同步</div>
+<div class="sticker sticker-4" style="--rot:-4deg;">✨ 纯净无广</div>
 
 <div id="toast" class="custom-toast"></div>
 
 <div class="auth-wrapper">
+  
   <!-- 品牌头部 -->
   <div class="brand-header">
     <div class="brand-badge">
-      <i class="fas fa-book-sparkles icon-spin"></i>
-      <span>Novelia · 聚合阅读</span>
+      <i class="fas fa-book-open"></i>
+      <span>Novelia · 享受纯粹阅读</span>
     </div>
-    <h1 class="brand-title">欢迎探索</h1>
-    <p class="brand-sub">登录账号以同步书架、源管理与多端进度</p>
+    <h1 class="brand-title">欢迎回来 📖</h1>
   </div>
 
-  <!-- 主卡片 -->
+  <!-- 主卡片 (带和纸胶带装饰) -->
   <div class="auth-card">
+    <div class="washi-tape">✨ NOVELIA NOTE</div>
+
     <div class="tab-pills">
       <button class="tab-btn active" data-tab="login" id="btn-tab-login">登录</button>
       <button class="tab-btn" data-tab="register" id="btn-tab-reg">注册</button>
@@ -487,33 +512,33 @@ body.no-register .tab-pills { display: none !important; }
     <div class="step-pane active" id="pane-login">
       <form id="form-login" autocomplete="off">
         <div class="form-group">
-          <label class="form-label">邮箱账号</label>
+          <label class="form-label">账号 (邮箱)</label>
           <div class="input-control">
             <i class="fas fa-envelope field-icon"></i>
-            <input type="email" id="login-email" placeholder="输入您的注册邮箱" required autocomplete="off">
+            <input type="email" id="login-email" placeholder="输入您的邮箱账号" required autocomplete="off">
           </div>
         </div>
 
         <div class="form-group">
-          <label class="form-label">登录密码</label>
+          <label class="form-label">密码</label>
           <div class="input-control">
             <i class="fas fa-lock field-icon"></i>
-            <input type="password" id="login-password" placeholder="输入密码" required autocomplete="off">
+            <input type="password" id="login-password" placeholder="输入登录密码" required autocomplete="off">
             <button type="button" class="eye-toggle" data-target="login-password">
               <i class="far fa-eye"></i>
             </button>
           </div>
         </div>
 
-        <div style="display:flex;align-items:center;justify-content:space-between;margin:10px 0 2px;">
-          <label style="display:inline-flex;align-items:center;gap:7px;cursor:pointer;font-size:13px;color:#cbd5e1;user-select:none;">
-            <input type="checkbox" id="login-remember" checked style="width:16px;height:16px;accent-color:#6366f1;cursor:pointer;border-radius:4px;">
+        <div style="display:flex;align-items:center;justify-content:space-between;margin:8px 0 2px;">
+          <label style="display:inline-flex;align-items:center;gap:7px;cursor:pointer;font-size:12.5px;color:#475569;user-select:none;font-weight:600;">
+            <input type="checkbox" id="login-remember" checked style="width:16px;height:16px;accent-color:#0284c7;cursor:pointer;border-radius:4px;">
             <span>记住我 30 天</span>
           </label>
-          <a href="forgot_password" style="font-size:13px;color:#a5b4fc;text-decoration:none;">忘记密码？</a>
+          <a href="forgot_password" style="font-size:12.5px;color:#0284c7;text-decoration:none;font-weight:700;">忘记密码？</a>
         </div>
 
-        <button type="submit" class="submit-btn" id="btn-login-submit" style="margin-top:16px;">
+        <button type="submit" class="submit-btn" id="btn-login-submit">
           <span>立即登录</span>
           <i class="fas fa-arrow-right"></i>
         </button>
@@ -521,7 +546,6 @@ body.no-register .tab-pills { display: none !important; }
 
       <div class="auth-links">
         <button type="button" class="reg-entry" onclick="switchMode('register')">没有账号？点击注册</button>
-        <a href="/">返回首页</a>
       </div>
     </div>
 
@@ -529,7 +553,7 @@ body.no-register .tab-pills { display: none !important; }
     <div class="step-pane" id="pane-reg1">
       <form id="form-reg1" autocomplete="off">
         <div class="form-group">
-          <label class="form-label">注册邮箱</label>
+          <label class="form-label">账号 (邮箱)</label>
           <div class="input-control">
             <i class="fas fa-envelope field-icon"></i>
             <input type="email" id="reg-email" placeholder="用于接收密钥与验证码" required autocomplete="off">
@@ -567,7 +591,6 @@ body.no-register .tab-pills { display: none !important; }
 
       <div class="auth-links">
         <button type="button" class="reg-entry" onclick="switchMode('login')">已有账号？返回登录</button>
-        <a href="/">返回首页</a>
       </div>
     </div>
 
@@ -601,11 +624,11 @@ body.no-register .tab-pills { display: none !important; }
           <i class="fas fa-check"></i>
         </div>
         <h3 class="success-title">账号注册成功</h3>
-        <p class="success-desc">您的专用 API 密钥已生成并下发至：<br><strong style="color:#a5b4fc;" id="success-email"></strong></p>
+        <p class="success-desc">您的专用 API 密钥已生成并绑定至账号：<br><strong style="color:#0284c7;" id="success-email"></strong></p>
 
         <div class="success-box">
           • 请妥善保管好您的登录密码与 API 密钥<br>
-          • 登录后可在用户中心随时更新书源与同步设备
+          • 登录后可在用户中心随时更新书源与查看设备
         </div>
 
         <button class="submit-btn" id="btn-go-login">
@@ -618,100 +641,11 @@ body.no-register .tab-pills { display: none !important; }
   </div>
 
   <div class="auth-footer">
-    Novelia 聚合书源系统 &copy; 2026 · 极简阅读，博览群书
+    2026 &copy; Novelia. All rights reserved.
   </div>
 </div>
 
 <script>
-// --- 背景星空与微粒子动态渲染 ---
-(function() {
-  const canvas = document.getElementById('bg-canvas');
-  const ctx = canvas.getContext('2d');
-  let width, height;
-  const particles = [];
-  const stars = [];
-
-  function resize() {
-    width = canvas.width = window.innerWidth;
-    height = canvas.height = window.innerHeight;
-  }
-  resize();
-  window.addEventListener('resize', resize);
-
-  for (let i = 0; i < 70; i++) {
-    particles.push({
-      x: Math.random() * width,
-      y: Math.random() * height,
-      r: Math.random() * 1.6 + 0.6,
-      vx: (Math.random() - 0.5) * 0.35,
-      vy: (Math.random() - 0.5) * 0.35,
-      alpha: Math.random() * 0.6 + 0.15
-    });
-  }
-
-  for (let i = 0; i < 40; i++) {
-    stars.push({
-      x: Math.random() * width,
-      y: Math.random() * height,
-      r: Math.random() * 1.2,
-      blinkSpd: 0.02 + Math.random() * 0.03,
-      alpha: Math.random()
-    });
-  }
-
-  function render() {
-    ctx.clearRect(0, 0, width, height);
-
-    // 星星闪烁
-    for (let i = 0; i < stars.length; i++) {
-      const s = stars[i];
-      s.alpha += s.blinkSpd;
-      const opacity = (Math.sin(s.alpha) + 1) / 2 * 0.7 + 0.1;
-      ctx.beginPath();
-      ctx.arc(s.x, s.y, s.r, 0, Math.PI * 2);
-      ctx.fillStyle = `rgba(255, 255, 255, ${opacity})`;
-      ctx.fill();
-    }
-
-    // 粒子与连接线
-    for (let i = 0; i < particles.length; i++) {
-      const p = particles[i];
-      p.x += p.vx;
-      p.y += p.vy;
-      if (p.x < 0) p.x = width;
-      if (p.x > width) p.x = 0;
-      if (p.y < 0) p.y = height;
-      if (p.y > height) p.y = 0;
-
-      ctx.beginPath();
-      ctx.arc(p.x, p.y, p.r, 0, Math.PI * 2);
-      ctx.fillStyle = `rgba(165, 180, 252, ${p.alpha})`;
-      ctx.fill();
-    }
-
-    // 邻近连线
-    for (let i = 0; i < particles.length; i++) {
-      for (let j = i + 1; j < particles.length; j++) {
-        const dx = particles[i].x - particles[j].x;
-        const dy = particles[i].y - particles[j].y;
-        const dist = Math.sqrt(dx * dx + dy * dy);
-        if (dist < 110) {
-          ctx.beginPath();
-          ctx.moveTo(particles[i].x, particles[i].y);
-          ctx.lineTo(particles[j].x, particles[j].y);
-          ctx.strokeStyle = `rgba(99, 102, 241, ${(1 - dist / 110) * 0.16})`;
-          ctx.lineWidth = 0.6;
-          ctx.stroke();
-        }
-      }
-    }
-
-    requestAnimationFrame(render);
-  }
-  render();
-})();
-
-// --- 认证业务状态与逻辑 ---
 let currentMode = 'login';
 let cachedEmail = '';
 let cachedPassword = '';
@@ -845,17 +779,17 @@ function showToast(msg, type = 'info') {
 }
 
 // 按钮 Loading 状态
-function setButtonLoading(btn, loading, defaultText) {
+function setButtonLoading(btn, loading) {
   btn.disabled = loading;
   if (loading) {
-    btn.dataset.original = btn.innerHTML;
-    btn.innerHTML = '<div class="btn-spinner"></div><span>处理中...</span>';
-  } else {
-    btn.innerHTML = btn.dataset.original || defaultText;
+    btn.dataset.origHtml = btn.innerHTML;
+    btn.innerHTML = '<span class="btn-spinner"></span><span>处理中...</span>';
+  } else if (btn.dataset.origHtml) {
+    btn.innerHTML = btn.dataset.origHtml;
   }
 }
 
-// 倒计时管理
+// 倒计时工具
 function startCountdown(seconds) {
   const box = document.getElementById('reg-countdown');
   box.style.display = 'block';

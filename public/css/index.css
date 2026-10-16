@@ -471,6 +471,7 @@ a {
 .novel-recommend-section,
 .novel-featured-section,
 .latest-added-section,
+.booklist-featured-section,
 .booklist-recommend-section,
 .booklist-square-section,
 .booklist-random-section {
@@ -1401,6 +1402,7 @@ a {
     .novel-recommend-section,
     .novel-featured-section,
     .latest-added-section,
+    .booklist-featured-section,
     .booklist-recommend-section,
     .booklist-square-section,
     .booklist-random-section {

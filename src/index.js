@@ -44,16 +44,17 @@ function sendAdminPage(file) {
   };
 }
 // 发现页是公开页面, 其中的后台入口链接必须回退到默认 /admin,
-// 否则任何访客都能从 /debug 读出隐藏的 ADMIN_PATH, 隐藏入口即失效。
+// 否则任何访客都能从发现页读出隐藏的 ADMIN_PATH, 隐藏入口即失效。
 function sendPublicPage(file) {
   return (req, res) => {
     fs.readFile(path.join(__dirname, '..', 'public', file), 'utf8', (err, html) => {
-      if (err) return res.status(500).send('admin page missing');
-      res.type('html').send(html.replace(/__ADMIN_PATH__/g, '/admin'));
+      if (err) return res.status(500).send('page missing');
+      res.type('html').send(html.replace(/__ADMIN_PATH__/g, ADMIN_PATH));
     });
   };
 }
-app.get('/debug', sendPublicPage('debug.html'));
+app.get('/discover', sendPublicPage('discover.html'));
+app.get('/debug', (req, res) => res.redirect(301, '/discover'));
 app.get(ADMIN_PATH, sendAdminPage('admin.html'));
 app.get(ADMIN_PATH + '/accounts', sendAdminPage('admin_accounts.html'));
 
@@ -84,7 +85,6 @@ const PORT = process.env.PORT || 7001;
 if (require.main === module) {
   metrics.start();
   require('./lib/bookpool').init();
-  require('./lib/jjlists').init();
   app.listen(PORT, () => console.log(`Novelia listening on :${PORT}`));
 }
 

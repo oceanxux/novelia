@@ -10,10 +10,14 @@ node_modules
 data/users.json
 data/redeem_codes.json
 data/bookpool.json
+data/bookmeta.json
+data/system_config.json
 data/jj_account.json
 data/user-sources.json
 data/admins.json
 data/fq_account.json
+# Cloudflare 会话 (cf_clearance 为登录凭据, 严禁打进镜像)
+data/cf-sessions.json
 
 # 生成器中间产物
 tools/gen_sources.json

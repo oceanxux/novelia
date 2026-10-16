@@ -62,7 +62,7 @@
             <button class="tab-btn" data-tab="server"><i class="fas fa-server"></i> 服务器</button>
             <button class="tab-btn" data-tab="profile"><i class="fas fa-user-edit"></i> 信息</button>
             <button class="tab-btn" data-tab="password"><i class="fas fa-lock"></i> 安全</button>
-            <button class="tab-btn" data-tab="downloads"><i class="fas fa-download"></i> 书源</button>
+            <button class="tab-btn" data-tab="source"><i class="fas fa-book-open"></i> 书源</button>
             <button class="tab-btn" data-tab="member">👑 会员</button>
         </div>
         <div class="scroll-hint"><i class="fas fa-chevron-right"></i></div>
@@ -224,18 +224,18 @@
         </div>
     </div>
 
-    <!-- ===== 应用下载 Tab ===== -->
-    <div class="tab-pane" id="tab-downloads">
+    <!-- ===== 书源导入 Tab ===== -->
+    <div class="tab-pane" id="tab-source">
         <div class="card">
-            <div class="card-header"><i class="fas fa-download me-2"></i> 书源导入</div>
+            <div class="card-header"><i class="fas fa-book-open me-2"></i> 书源导入</div>
             <div class="card-body text-center" style="padding:40px 20px;">
                 <div style="width:76px;height:76px;margin:0 auto 16px;border-radius:22px;background:linear-gradient(135deg,#b08a2e,#d4a017);display:flex;align-items:center;justify-content:center;color:#fff;font-size:1.9rem;box-shadow:0 8px 20px rgba(176,138,46,0.35);">
                     <i class="fas fa-book-reader"></i>
                 </div>
-                <h5 style="font-weight:700;margin-bottom:6px;">Novelia聚合书源</h5>
-                <p class="text-muted" style="font-size:0.85rem;margin-bottom:18px;">在阅读 3.0 中导入下方书源 JSON, 即可搜索与阅读本站全部书源</p>
+                <h5 style="font-weight:700;margin-bottom:6px;">Novelia 专属配置</h5>
+                <p class="text-muted" style="font-size:0.85rem;margin-bottom:18px;">在阅读 3.0 中导入下方配置链接，即可一键同步全网资源与智能段评</p>
                 <a href="/book_source.json" class="btn btn-primary" style="border-radius:999px;padding:12px 46px;font-size:0.95rem;font-weight:600;box-shadow:0 6px 16px rgba(176,138,46,0.3);">
-                    <i class="fas fa-download me-2"></i>获取书源 JSON
+                    <i class="fas fa-download me-2"></i>获取配置链接 (JSON)
                 </a>
             </div>
         </div>
@@ -455,7 +455,8 @@
     }
 
     const urlParams = new URLSearchParams(window.location.search);
-    const activeTab = urlParams.get('tab') || 'overview';
+    let activeTab = urlParams.get('tab') || 'overview';
+    if (activeTab === 'downloads') activeTab = 'source';
     const tabBtn = document.querySelector(`.tab-btn[data-tab="${activeTab}"]`);
     if (tabBtn) tabBtn.click();
 

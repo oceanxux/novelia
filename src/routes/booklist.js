@@ -4,27 +4,25 @@
 //   GET /api/get_featured_booklists?sort=&page=&limit=
 //   GET /api/get_recommended_booklists?page=&limit=
 //   GET /api/get_random_booklists
-//   GET /api/get_jj_booklists
-//   GET /api/search_jj_booklists?q=&page=&sort=
+//   GET /api/get_booklists
+//   GET /api/search_booklists?q=&page=&sort=
 //   GET /proxy_image?url=
 const fs = require('fs');
 const path = require('path');
 const https = require('https');
 const http = require('http');
 const express = require('express');
-const seed = require('../lib/seeddata');
 const store = require('../lib/userstore');
 const readstats = require('../lib/readstats');
 const userRoute = require('./user');
 const bookpool = require('../lib/bookpool');
-const jjlists = require('../lib/jjlists');
-const jjranks = require('../lib/jjranks');
+const sqranks = require('../lib/sqranks');
 const adapters = require('../adapters');
 
 const router = express.Router();
 const TPL = path.join(__dirname, '..', '..', 'public', 'booklist_index.html');
 const DETAIL_TPL = path.join(__dirname, '..', '..', 'public', 'book_detail.html');
-const JJ_TPL = path.join(__dirname, '..', '..', 'public', 'booklist_jjdetail.html');
+const LIST_TPL = path.join(__dirname, '..', '..', 'public', 'booklist_detail.html');
 
 function esc(s) {
   return String(s == null ? '' : s)
@@ -153,23 +151,19 @@ router.post('/api/chapter', async (req, res) => {
   }
 });
 
-// ---- 晋江书单详情 ----
-async function renderJjDetail(listid) {
-  let html = fs.readFileSync(JJ_TPL, 'utf8');
-  let data = null;
-  if (String(listid).startsWith('rank_')) {
-    data = await jjranks.getDetail(listid);
-  }
-  if (!data) data = jjlists.get(listid) || { listid, listname: '书单不存在', books: [] };
+// ---- 书单详情 ----
+async function renderListDetail(listid) {
+  let html = fs.readFileSync(LIST_TPL, 'utf8');
+  const data = await sqranks.getDetail(listid) || { listid, listname: '书单不存在', books: [] };
   html = html.replace('{{LIST_JSON}}', jsonForScript(data));
   return html;
 }
-async function sendJjDetail(req, res) {
+async function sendListDetail(req, res) {
   const listid = String(req.query.listid || req.query.id || '');
-  res.type('html').send(await renderJjDetail(listid));
+  res.type('html').send(await renderListDetail(listid));
 }
-router.get('/booklist_jjdetail', sendJjDetail);
-router.get('/booklist_jjdetail.php', sendJjDetail);
+router.get('/booklist_detail', sendListDetail);
+router.get('/booklist_detail.php', sendListDetail);
 
 // 契约对齐: GET /details?source=&url=&name=  返回 { code, message, data: Book }
 router.get('/details', async (req, res) => {
@@ -186,34 +180,13 @@ router.get('/details', async (req, res) => {
   }
 });
 
-// ---- 书单数据 (优先晋江实时榜单派生, 失败降级本地样本) ----
+// ---- 书单数据 (书旗官方榜单) ----
 async function loadLiveBooklists() {
   try {
-    const ranks = await jjranks.getLists();
-    if (ranks && ranks.length > 0) return ranks.slice();
-  } catch (e) {}
-  return seed.jjBooklists.map((b) => ({
-    id: b.listid,
-    listid: b.listid,
-    title: b.title,
-    listname: b.title,
-    description: b.description,
-    introduction: b.description,
-    book_count: b.book_count,
-    booknum: b.book_count,
-    like_count: b.like_count,
-    favnum: b.like_count,
-    view_count: b.view_count,
-    comment_count: b.comment_count || 0,
-    books: b.books || [],
-    nickname: b.nickname,
-    reader_name: b.nickname,
-    avatar: b.avatar,
-    reader_avatar: b.avatar,
-    time_label: '',
-    has_new_books: false,
-    custom_keywords: (b.categories || []).join(','),
-  }));
+    return (await sqranks.getLists()).slice();
+  } catch (e) {
+    return [];
+  }
 }
 
 // 洗牌
@@ -242,14 +215,14 @@ router.get('/api/get_random_booklists', async (req, res) => {
   res.json({ success: true, booklists: shuffle(all).slice(0, 8) });
 });
 
-// ---- 晋江书单 ----
-router.get('/api/get_jj_booklists', async (req, res) => {
+// ---- 书单 ----
+router.get('/api/get_booklists', async (req, res) => {
   const all = await loadLiveBooklists();
   res.json({ success: true, booklists: shuffle(all).slice(0, 10) });
 });
 
-// ---- 晋江搜索 ----
-router.get('/api/search_jj_booklists', async (req, res) => {
+// ---- 书单搜索 ----
+router.get('/api/search_booklists', async (req, res) => {
   const q = String(req.query.q || '').trim();
   const page = parseInt(req.query.page, 10) || 1;
   const perPage = 20;

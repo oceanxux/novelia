@@ -343,6 +343,27 @@
             <div class="book-scroll" id="recent-books"></div>
         </div>
 
+        <!-- 书旗榜单 -->
+        <div class="booklist-featured-section mb-4">
+            <div class="section-header">
+                <div>
+                    <h2 class="section-title">
+                        <i class="fas fa-crown" style="color:#f59e0b;"></i>书旗榜单
+                    </h2>
+                    <span class="section-subtitle">书旗官方实时排行榜, 每小时更新</span>
+                </div>
+                <button class="refresh-btn" onclick="loadFeaturedBooklists(true)">
+                    <i class="fas fa-rotate me-1"></i>刷新
+                </button>
+            </div>
+            <div class="book-scroll" id="featured-list-booklists"></div>
+            <div class="load-more" style="display:none;">
+                <button class="btn btn-outline-primary btn-sm" id="load-more-featured" style="display:none;" onclick="loadMoreFeatured()">
+                    <i class="fas fa-chevron-down me-1"></i>加载更多榜单
+                </button>
+            </div>
+        </div>
+
         <!-- 为你推荐 -->
         <div class="booklist-recommend-section mb-4">
             <div class="section-header">
@@ -405,7 +426,7 @@
             <i class="fas fa-compass nav-icon"></i>
             <span>精选</span>
         </a>
-        <a class="nav-item" href="/debug">
+        <a class="nav-item" href="/discover">
             <i class="fas fa-magnifying-glass nav-icon"></i>
             <span>发现</span>
         </a>

@@ -407,6 +407,8 @@ module.exports = [
       },
     },
     detail: {
+      // 由 bookid 反查时须补 .html 后缀: 目录钩子按 /book/{id}.html 取完整目录
+      urlFromId: '/book/{{id}}.html',
       fields: {
         title: '.view-book-info-book-title-box .bname@text',
         author: '.bauthor a@text',

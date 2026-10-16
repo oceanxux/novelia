@@ -161,20 +161,29 @@ function buildFullBookSource(base) {
   // 番茄官方 web 端唯一可用的登录入口就是该地址 (首页/书页的"登录"按钮都跳这里, 含扫码/
   // 验证码/密码三种方式); 曾误改为 https://fanqienovel.com/login, 该路径实测返回 404。
   if (src.loginUrl) {
-    src.loginUrl = src.loginUrl.replace(/https:\/\/fb\.shushan\.vip/g, base + '/booklist_index');
+    src.loginUrl = src.loginUrl.replace(/https:\/\/fb\.shushan\.vip/g, base + '/discover');
     src.loginUrl = src.loginUrl.replace(/https:\/\/www\.kufaka\.com\/item\/9mbtvr/g, base + '/user_center');
   }
 
-  // 替换 loginUi 按钮标题
+  // 替换 loginUi 按钮：移除冗余的「🎚服务器切换」，替换发布页与打赏入口
   if (src.loginUi) {
     try {
-      const uiList = JSON.parse(src.loginUi);
+      let uiList = JSON.parse(src.loginUi);
+      uiList = uiList.filter((btn) => {
+        if (!btn || !btn.name) return true;
+        if (btn.name.includes('服务器切换') || btn.action === 'sethost()') return false;
+        return true;
+      });
       uiList.forEach((btn) => {
-        if (btn.name === '📚书山发布页') btn.name = '📚Novelia发现';
+        if (btn.name === '📚书山发布页') btn.name = '🧭发现好书';
         if (btn.name === '☕打赏享福利') btn.name = '🎫会员兑换';
       });
       src.loginUi = JSON.stringify(uiList);
     } catch (e) {}
+  }
+
+  if (src.loginUrl) {
+    src.loginUrl = src.loginUrl.replace(/this\.sethost\s*=\s*function\(\)\s*\{[\s\S]*?\};/g, 'this.sethost = function() { java.toast("当前为唯一官方服务器，无需切换"); };');
   }
 
   // 1. 去除 exploreUrl 中未登录番茄时的冗余 toast 弹窗提示
